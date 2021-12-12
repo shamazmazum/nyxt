@@ -635,7 +635,10 @@ See `asdf::*immutable-systems*'."
   :perform (compile-op
             (o c)
             (let ((c-compiler (or (uiop:getenv "CC")
-                                  "gcc"))
+                                  ;; KLUDGE: "cc" is good for all platforms except guix. FreeBSD
+                                  ;; does not have GCC by default and must use cc or clang.
+                                  #+bsd "cc"
+                                  #-bsd "gcc"))
                   (c-flags (uiop:split-string
                             (uiop:run-program
                              '("pkg-config" "gobject-2.0" "webkit2gtk-web-extension-4.0" "--cflags")

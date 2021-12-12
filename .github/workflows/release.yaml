@@ -9,7 +9,7 @@ on:
   push:
     tags: '*'
     ## To test, uncomment the line below with branch name used for review.
-    # branches: [ MY-WORK-BRANCH ]
+    branches: [test]
 
 jobs:
   build-binaries:

@@ -611,7 +611,7 @@ See `asdf::*immutable-systems*'."
 
 (defsystem "nyxt/web-extensions"
   :pathname "libraries/web-extensions/"
-  :defsystem-depends-on (:cffi-toolchain)
+  :depends-on (:cffi-toolchain)
   :components ((:static-file "alarms.c")
                (:static-file "bookmarks.c")
                (:static-file "browser.c")

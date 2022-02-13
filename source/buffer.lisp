@@ -500,7 +500,7 @@ inherited from the superclasses."))
   '(certificate-exception-mode))
 
 (define-class nosave-buffer (user-web-buffer)
-  ((profile (make-instance 'nosave-profile)))
+  ((profile (make-instance 'user-nosave-profile)))
   (:export-class-name-p t)
   (:export-accessor-names-p t)
   (:export-predicate-name-p t)

@@ -18,8 +18,10 @@ buffers with this profile?"))
   (:documentation "With the default profile all data is persisted to the
 standard locations."))
 
+(define-user-class nyxt-profile)
+
 (export-always '*global-profile*)
-(defvar *global-profile* (make-instance 'nyxt-profile)
+(defvar *global-profile* (make-instance 'user-nyxt-profile)
   "The profile to use in the absence of buffers and on browser-less variables.")
 
 (define-class nyxt-file (nfiles:file)
@@ -60,13 +62,15 @@ If the file is modified externally, Nyxt automatically reloads it."))
   (:accessor-name-transformer (class*:make-name-transformer name))
   (:documentation "Nyxt Lisp files."))
 
-(define-class nosave-profile (nfiles:read-only-profile nyxt-profile)
+(define-class nosave-profile (nfiles:read-only-profile user-nyxt-profile)
   ((nfiles:name "nosave"))
   (:export-class-name-p t)
   (:export-accessor-names-p t)
   (:accessor-name-transformer (class*:make-name-transformer name))
   (:documentation "With the nosave profile no data should be persisted to disk.
 No data should be shared with other nosave buffers either."))
+
+(define-user-class nosave-profile)
 
 (defun find-file-name-path (ref)
   "Return the value of the REF found in `*options*'s `:with-file'.
@@ -177,12 +181,15 @@ Example: when passed command line option --with-file foo=bar,
 
 (export-always 'list-profile-classes)
 (defun list-profile-classes ()
-  (cons (find-class 'nyxt:nyxt-profile)
-        (mopu:subclasses 'nyxt:nyxt-profile)))
+  ;; This construction returns classes with USER- prefix
+  (remove-if
+   #'user-class-p
+   (cons (find-class 'nyxt:nyxt-profile)
+         (mopu:subclasses 'nyxt:nyxt-profile))))
 
 (export-always 'find-profile-class)
 (defun find-profile-class (name)
   (find name
         (list-profile-classes)
-        :test 'string=
-        :key #'profile-class-name))
+        :test #'string=
+        :key  #'profile-class-name))

@@ -112,6 +112,7 @@ A naive benchmark on a 16 Mpbs bandwidth gives us
                 ((:file "global")
                  (:file "concurrency")
                  (:file "gpg")
+                 (:file "user-classes")
                  (:file "user-files")
                  (:file "configuration")
                  (:file "message")

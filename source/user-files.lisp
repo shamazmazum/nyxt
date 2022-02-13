@@ -6,7 +6,12 @@
 ;; We define our own 'default profile' (instead of using `nfiles:profile'
 ;; directly) so that we can specialize the methods
 (define-class nyxt-profile (nfiles:profile)
-  ((nfiles:name "nyxt"))
+  ((nfiles:name "nyxt")
+   (ephemeral-p
+    nil
+    :type boolean
+    :documentation "Should we create ephemeral web contexts for
+buffers with this profile?"))
   (:export-class-name-p t)
   (:export-accessor-names-p t)
   (:accessor-name-transformer (class*:make-name-transformer name))

@@ -331,7 +331,7 @@ the same naming rules as above."
   (let ((internal-p (or (not buffer)
                         (internal-buffer-p buffer)))
         (ephemeral-p (or ephemeral-p
-                         (when buffer (typep (profile buffer) 'nosave-profile))
+                         (when buffer (ephemeral-p (profile buffer)))
                          (typep buffer 'nosave-buffer))))
     (make-instance (if ephemeral-p
                        'webkit-web-view-ephemeral
@@ -770,8 +770,7 @@ See `gtk-browser's `modifier-translator' slot."
                                                                       (nfiles:expand data-manager-cache-directory)))))))
          (gtk-extensions-path (nfiles:expand (make-instance 'gtk-extensions-directory :context-name name)))
          (cookie-manager (webkit:webkit-web-context-get-cookie-manager context)))
-    (unless (or ephemeral-p
-                (internal-context-p name))
+    (unless (internal-context-p name)
       (webkit:webkit-web-context-add-path-to-sandbox
        context (namestring (asdf:system-relative-pathname :nyxt "libraries/web-extensions/")) t)
       (unless (uiop:emptyp gtk-extensions-path)
@@ -837,11 +836,12 @@ See `gtk-browser's `modifier-translator' slot."
               (webkit:webkit-security-manager-register-uri-scheme-as-empty-document
                manager scheme)))))
        nyxt::*schemes*)
-      (let ((cookies-path (nfiles:expand (make-instance 'cookies-file :context-name name))))
-        (webkit:webkit-cookie-manager-set-persistent-storage
-         cookie-manager
-         (uiop:native-namestring cookies-path)
-         :webkit-cookie-persistent-storage-text))
+      (unless ephemeral-p
+        (let ((cookies-path (nfiles:expand (make-instance 'cookies-file :context-name name))))
+          (webkit:webkit-cookie-manager-set-persistent-storage
+           cookie-manager
+           (uiop:native-namestring cookies-path)
+           :webkit-cookie-persistent-storage-text)))
       (set-cookie-policy cookie-manager (default-cookie-policy *browser*)))
     context))
 

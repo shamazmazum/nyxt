@@ -546,8 +546,7 @@ non-new-page requests, buffer URL is not altered."
          (log:debug "Load URL in new buffer: ~a" (render-url url))
          (open-urls (list url))
          nil)
-        ((and (not (known-type-p request-data))
-              (new-page-request-p request-data))
+        ((not (known-type-p request-data))
          (log:debug "Buffer ~a initiated download of ~s." (id buffer) (render-url url))
          (download buffer url
                    :proxy-url (proxy-url buffer :downloads-only t)

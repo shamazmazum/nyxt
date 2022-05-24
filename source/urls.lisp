@@ -185,7 +185,7 @@ Public Suffix list, T otherwise."
 
 (export-always 'valid-scheme-p)
 (defun valid-scheme-p (scheme)
-  (let* ((nyxt-schemes (cons "javascript" (alex:hash-table-keys *schemes*)))
+  (let* ((nyxt-schemes (append '("blob" "javascript") (alex:hash-table-keys *schemes*)))
          ;; List of URI schemes: https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml
          ;; Last updated 2020-08-26.
          (iana-schemes
@@ -276,6 +276,7 @@ If it cannot be derived, return an empty `quri:uri'."
           (quri:uri-query url)
           (quri:uri-fragment url)))
 
+(export-always 'url<)
 (-> url< (quri:uri quri:uri) (or null fixnum))
 (defun url< (url1 url2)
   "Like `string<' but ignore the URL scheme.
@@ -283,6 +284,7 @@ This way, HTTPS and HTTP is ignored when comparing URIs."
   (string< (schemeless-url url1)
            (schemeless-url url2)))
 
+(export-always 'url-equal)
 (-> url-equal (quri:uri quri:uri) boolean)
 (defun url-equal (url1 url2)
   "Like `quri:uri=' but ignoring the scheme.

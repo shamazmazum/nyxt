@@ -7,9 +7,12 @@
   ((customize-hook :initform (make-instance 'hooks:hook-any)
                    :documentation "An internal hook to add customization handlers to.
 
-Is made for `define-configuration'.
+Reserved for `define-configuration'.
 
-Prefer `define-configuration' and `customize-instance' instead.")))
+Prefer `define-configuration' and `customize-instance' instead."))
+  (:documentation "Classes using this metaclass will call `customize-instance'
+on instantiation.
+This is useful to expose a class configuration knob to the user."))
 (export-always 'user-class)
 
 (defmethod closer-mop:validate-superclass ((class user-class)
@@ -29,19 +32,17 @@ behaviour of some CLASS instance.
 This method is run after the instance has been initialized (in particular, after
 the `initialize-instance' :after method).
 
-The standard method is meant to be used by users only.
+The standard method is reserved for user configuration.
 
-Don't use it in public code, prefer `initialize-instance :after' instead to
-initialize slots, and `customize-instance :after' for code that relies on
-finalized slot values.."))
+Do not specialize the standard method in public code, prefer
+`initialize-instance :after' instead to initialize slots, and
+`customize-instance :after' for code that relies on finalized slot values."))
 
 (defmethod make-instance :around ((class user-class) &rest initargs &key &allow-other-keys)
   (sera:lret ((initialized-object (call-next-method)))
-    (hooks:run-hook (slot-value class 'customize-hook) initialized-object)
     (mapcar (lambda (class)
-              (when (user-class-p class)
-                (hooks:run-hook (slot-value class 'customize-hook) initialized-object)))
-            (mopu:superclasses (class-of initialized-object)))
+              (hooks:run-hook (slot-value class 'customize-hook) initialized-object))
+            (sera:filter #'user-class-p (cons class (mopu:superclasses class))))
     (apply #'customize-instance initialized-object initargs)))
 
 (defun user-class-p (class-specifier)

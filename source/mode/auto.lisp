@@ -10,9 +10,9 @@
 (in-package :nyxt/auto-mode)
 (use-nyxt-package-nicknames)
 
-(define-class auto-mode-rules-file (nfiles:data-file nyxt-lisp-file)
-  ((nfiles:base-path #p"auto-mode-rules")
-   (nfiles:name "auto-mode-rules"))
+(define-class auto-mode-rules-file (files:data-file nyxt-lisp-file)
+  ((files:base-path #p"auto-mode-rules")
+   (files:name "auto-mode-rules"))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
@@ -101,9 +101,60 @@ If the mode specifier is not known, it's omitted from the results."
   (print-unreadable-object (rule stream :type t :identity t)
     (format stream "~a" (second (test rule)))))
 
+(define-mode auto-mode ()
+  "Remember the modes setup for given domain/host/URL and store it in an editable form.
+These modes will then be activated on every visit to this domain/host/URL."
+  ((rememberable-p nil)
+   (auto-mode-rules-file
+    (make-instance 'auto-mode-rules-file)
+    :type auto-mode-rules-file
+    :documentation "The file where the auto-mode rules are saved.")
+   (keymap-scheme
+    (define-scheme "auto-mode"
+      scheme:cua
+      (list
+       "C-R" 'reload-with-modes)))
+   (prompt-on-mode-toggle
+    nil
+    :type boolean
+    :documentation "Whether the user is asked to confirm adding the rule
+corresponding to a mode toggle.")
+   (previous-url
+    nil
+    :type (or quri:uri null)
+    :documentation "The last URL for which `auto-mode-handler' was fired.  We
+need to know if the auto mode rule has been applied before to avoid re-applying
+a rule for a sequence of pages that match the same rule.
+
+We can'rely on the previous history entry because dead buffers and
+session-restored buffers may have a history with a previous URL matching the
+same rule while obviously the rule has never been applied for the new-born
+buffer.")
+   (last-active-modes-url
+    nil
+    :type (or quri:uri null)
+    :documentation "The last URL that the active modes were saved for.  We need
+to store this to not overwrite the `last-active-modes' for a given URL, if
+`auto-mode-handler' is fired more than once.")
+   (last-active-modes
+    '()
+    :type (or (cons mode-invocation *) null)
+    :documentation "The list of `mode-invocation's that were enabled on the last
+URL not covered by `auto-mode'.  This is useful when alternative between
+rule-less and ruled pages.  Example browse sequence:
+
+- https://example.org (no-script-mode no-image-mode) ; No rule.
+- https://nyxt.atlas.engineer (dark-mode) ; Rule
+- https://en.wikipedia.org (no-script-mode no-image-mode) ; No rule.
+
+In the above, when browsing from nyxt.atlas.engineer to en.wikipedia.org, the
+modes that were in place before the nyxt.atlas.engineer rule was applied are
+restored.")))
+
 (-> matching-auto-mode-rule (quri:uri buffer) (or auto-mode-rule null))
 (defun matching-auto-mode-rule (url buffer)
-  (let ((rules (nfiles:content (auto-mode-rules-file buffer))))
+  (sera:and-let* ((mode (find-submode 'auto-mode buffer))
+                  (rules (files:content (auto-mode-rules-file mode))))
     (flet ((priority (test1 test2)
              (let ((priority-list '(match-regex match-url match-host match-domain)))
                (< (or (position (first test1) priority-list) 4)
@@ -179,7 +230,7 @@ The rules are:
           (if-confirm ("Permanently ~:[disable~;enable~] ~a for this URL?"
                        enable-p (sera:class-name-of mode))
                       (let ((url (prompt1
-                                   :prompt "URL:"
+                                   :prompt "URL"
                                    :input (render-url (url (buffer mode)))
                                    :sources (make-instance 'prompter:raw-source))))
                         (add-modes-to-auto-mode-rules (url-infer-match url)
@@ -192,52 +243,6 @@ The rules are:
                                        :test #'equals)
                                 (remove invocation (last-active-modes auto-mode)
                                         :test #'equals))))))))
-
-(define-mode auto-mode ()
-  "Remember the modes setup for given domain/host/URL and store it in an editable form.
-These modes will then be activated on every visit to this domain/host/URL."
-  ((rememberable-p nil)
-   (keymap-scheme
-    (define-scheme "auto-mode"
-      scheme:cua
-      (list
-       "C-R" 'reload-with-modes)))
-   (prompt-on-mode-toggle
-    nil
-    :type boolean
-    :documentation "Whether the user is asked to confirm adding the rule
-corresponding to a mode toggle.")
-   (previous-url
-    nil
-    :type (or quri:uri null)
-    :documentation "The last URL for which `auto-mode-handler' was fired.  We
-need to know if the auto mode rule has been applied before to avoid re-applying
-a rule for a sequence of pages that match the same rule.
-
-We can'rely on the previous history entry because dead buffers and
-session-restored buffers may have a history with a previous URL matching the
-same rule while obviously the rule has never been applied for the new-born
-buffer.")
-   (last-active-modes-url
-    nil
-    :type (or quri:uri null)
-    :documentation "The last URL that the active modes were saved for.  We need
-to store this to not overwrite the `last-active-modes' for a given URL, if
-`auto-mode-handler' is fired more than once.")
-   (last-active-modes
-    '()
-    :type (or (cons mode-invocation *) null)
-    :documentation "The list of `mode-invocation's that were enabled on the last
-URL not covered by `auto-mode'.  This is useful when alternative between
-rule-less and ruled pages.  Example browse sequence:
-
-- https://example.org (no-script-mode no-image-mode) ; No rule.
-- https://nyxt.atlas.engineer (dark-mode) ; Rule
-- https://en.wikipedia.org (no-script-mode no-image-mode) ; No rule.
-
-In the above, when browsing from nyxt.atlas.engineer to en.wikipedia.org, the
-modes that were in place before the nyxt.atlas.engineer rule was applied are
-restored.")))
 
 (-> auto-mode-handler (request-data) request-data)
 (defun auto-mode-handler (request-data)
@@ -321,13 +326,13 @@ save a particular mode, configure it to be `rememberable-p' in your initfile.
 
 For the storage format see the comment in the head of your `auto-mode-rules-file'."
   (let ((url (prompt1
-              :prompt "URL:"
+              :prompt "URL"
               :input (render-url (url (current-buffer)))
               :sources (list
                         (make-instance 'prompter:raw-source
                                        :name "New URL")
                         (make-instance 'global-history-source
-                                       :actions '())))))
+                                       :return-actions '())))))
     (when (typep url 'nyxt::history-entry)
       (setf url (url url)))
     (add-modes-to-auto-mode-rules
@@ -351,13 +356,13 @@ For the storage format see the comment in the head of your `auto-mode-rules-file
   ;; TODO: Should it prompt for modes to save?
   ;; One may want to adjust the modes before persisting them as :exact-p rule.
   (let ((url (prompt1
-              :prompt "URL:"
+              :prompt "URL"
               :input (render-url (url (current-buffer)))
               :sources (list
                         (make-instance 'prompter:raw-source
                                        :name "New URL")
                         (make-instance 'global-history-source
-                                       :actions '())))))
+                                       :return-actions '())))))
     (when (typep url 'nyxt::history-entry)
       (setf url (url url)))
     (add-modes-to-auto-mode-rules (url-infer-match url)
@@ -400,7 +405,8 @@ Auto-mode is re-enabled once the page is reloaded."
     (values list &optional))
 (sera:export-always 'add-modes-to-auto-mode-rules)
 (defun add-modes-to-auto-mode-rules (test &key (append-p nil) exclude include (exact-p nil))
-  (let ((rules (nfiles:content (auto-mode-rules-file (current-buffer)))))
+  (alex:when-let* ((mode (find-submode 'auto-mode))
+                   (rules (files:content (auto-mode-rules-file mode))))
     (let* ((rule (or (find test rules
                            :key #'test :test #'equal)
                      (make-instance 'auto-mode-rule :test test)))
@@ -449,8 +455,8 @@ Auto-mode is re-enabled once the page is reloaded."
       (write-if-present 'exact-p)
       (write-string ")" stream))))
 
-(defmethod nfiles:serialize ((profile nyxt-profile) (file auto-mode-rules-file) stream &key)
-  (let ((rules (nfiles:content file)))
+(defmethod files:serialize ((profile nyxt-profile) (file auto-mode-rules-file) stream &key)
+  (let ((rules (files:content file)))
     (let ((*standard-output* stream)
           (*package* (find-package :nyxt/auto-mode)))
       (write-string ";; List of auto-mode rules.
@@ -490,9 +496,9 @@ Auto-mode is re-enabled once the page is reloaded."
         (write-char #\newline)
         (serialize-object rule))
       (format t "~%)~%"))
-    (echo "Saved ~a auto-mode rules to ~s." (length rules) (nfiles:expand file))))
+    (echo "Saved ~a auto-mode rules to ~s." (length rules) (files:expand file))))
 
-(defmethod nfiles:deserialize ((profile nyxt-profile) (file auto-mode-rules-file) raw-content &key)
+(defmethod files:deserialize ((profile nyxt-profile) (file auto-mode-rules-file) raw-content &key)
   (let ((rules (read raw-content)))
     (mapcar #'(lambda (rule)
                 (let ((rule (append '(:test) rule)))

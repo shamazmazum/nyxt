@@ -172,8 +172,8 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.
   (:export-accessor-names-p t)
   (:accessor-name-transformer (hu.dwim.defclass-star:make-name-transformer name)))
 
-(define-class extension-storage-file (nfiles:data-file nyxt-file)
-  ((nfiles:name "extension-storage")
+(define-class extension-storage-file (files:data-file nyxt-file)
+  ((files:name "extension-storage")
    (extension-name ""))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name))
@@ -181,10 +181,10 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.
   https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage
   for API description)."))
 
-(defmethod nfiles:resolve ((profile nyxt-profile) (file extension-storage-file))
+(defmethod files:resolve ((profile nyxt-profile) (file extension-storage-file))
   (sera:path-join
    (call-next-method)
-   (uiop:ensure-directory-pathname (nfiles:name file))
+   (uiop:ensure-directory-pathname (files:name file))
    (uiop:strcat (extension-name file) ".txt")))
 
 (define-mode extension ()
@@ -377,7 +377,7 @@ DIRECTORY should be the one containing manifest.json file for the extension in q
                  (:button :class "button"
                           :onclick (ps:ps (nyxt/ps:lisp-eval
                                            `(toggle-extension-popup ',(sera:class-name-of extension))))
-                          :title (format nil "Open the browser action of ~a" (mode-name extension))
+                          :title (format nil "Open the browser action of ~a" (name extension))
                           (:raw (setf (default-icon (browser-action extension))
                                       (encode-browser-action-icon (quote ,json) ,directory))))))))))
 

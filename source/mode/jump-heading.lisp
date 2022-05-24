@@ -81,16 +81,16 @@
 (define-class heading-source (prompter:source)
   ((prompter:name "Headings")
    (buffer :accessor buffer :initarg :buffer)
-   (prompter:follow-p t)
-   (prompter:follow-mode-functions #'scroll-page-to-heading)
+   (prompter:selection-actions-enabled-p t)
+   (prompter:selection-actions #'scroll-page-to-heading)
    (prompter:constructor (lambda (source)
                            (get-headings :buffer (buffer source))))
-   (prompter:actions (list (lambda-unmapped-command scroll-page-to-heading)))))
+   (prompter:return-actions (list (lambda-unmapped-command scroll-page-to-heading)))))
 
 (define-command jump-to-heading (&key (buffer (current-buffer)))
   "Jump to a particular heading, of type h1, h2, h3, h4, h5, or h6."
   (prompt
-   :prompt "Jump to heading:"
+   :prompt "Jump to heading"
    :sources (list (make-instance 'heading-source
                                  :buffer buffer))))
 
@@ -98,12 +98,12 @@
   "Jump to a particular heading, of type h1, h2, h3, h4, h5, or h6 across a set
 of buffers."
   (let ((buffers (prompt
-                  :prompt "Select headings from buffers:"
+                  :prompt "Select headings from buffers"
                   :sources (make-instance 'buffer-source
                                           :multi-selection-p t
-                                          :actions nil))))
+                                          :return-actions nil))))
     (prompt
-     :prompt "Jump to heading:"
+     :prompt "Jump to heading"
      :sources (loop for buffer in buffers
                     collect (make-instance
                              'heading-source
@@ -139,7 +139,7 @@ of buffers."
                              (title heading)))
                     (when (rest group)
                       (:raw (sera:mapconcat #'headings->html (list (group-headings (rest group))) "")))))))))
-    (ffi-window-set-panel-buffer-width (current-window) panel-buffer 400)
+    (setf (ffi-window-panel-buffer-width (current-window) panel-buffer) 400)
     (spinneret:with-html-string
       (:h1 "Headings")
       (:raw (headings->html (group-headings (get-headings)))))))

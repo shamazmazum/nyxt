@@ -1,11 +1,29 @@
 ;;;; SPDX-FileCopyrightText: Atlas Engineer LLC
 ;;;; SPDX-License-Identifier: BSD-3-Clause
 
-(in-package :nyxt)
+(uiop:define-package :nyxt/record-input-field-mode
+  (:use :common-lisp :nyxt)
+  (:import-from #:class-star #:define-class)
+  (:import-from #:keymap #:define-key #:define-scheme)
+  (:import-from #:serapeum #:export-always #:->)
+  (:documentation "Record input fields to be refilled later."))
+(in-package :nyxt/record-input-field-mode)
+(use-nyxt-package-nicknames)
 
-(define-class inputs-file (nfiles:data-file nyxt-lisp-file)
-  ((nfiles:base-path #p"inputs")
-   (nfiles:name "inputs"))
+(define-mode record-input-field-mode ()
+  "Record input fields to be refilled later.
+See `save-input-data' and `set-input-data-from-saved'."
+  ((inputs-file
+    (make-instance 'inputs-file)
+    :type inputs-file
+    :documentation "The file where the system will create/save the input data.")))
+
+(defmethod inputs-file ((buffer buffer))
+  (inputs-file (find-submode 'record-input-field-mode buffer)))
+
+(define-class inputs-file (files:data-file nyxt-lisp-file)
+  ((files:base-path #p"inputs")
+   (files:name "inputs"))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
@@ -65,7 +83,7 @@
                                  collect (convert-string-to-keyword key)
                                  collect value)))
            (input-field-add (input-field) 
-             (nfiles:with-file-content (input-fields (inputs-file (current-buffer)))
+             (files:with-file-content (input-fields (inputs-file (current-buffer)))
                (push (make-instance 'input-entry :url (url (current-buffer))
                                                  :title (title (current-buffer))
                                                  :date (local-time:now)
@@ -100,36 +118,39 @@
 
 (define-class input-data-source (prompter:source)
   ((prompter:name "Inputs")
-   (prompter:constructor (nfiles:content (inputs-file (current-buffer))))))
+   (prompter:constructor (files:content (inputs-file (current-buffer))))))
 
 (define-class filtered-domain-input-data-source (prompter:source)
   ((prompter:name "Inputs")
    (prompter:constructor (remove-if-not #'(lambda (input-entry)
                                             (equal (quri:uri-domain (quri:uri (url input-entry)))
                                                    (quri:uri-domain (url (current-buffer)))))
-                                        (nfiles:content (inputs-file (current-buffer)))))))
+                                        (files:content (inputs-file (current-buffer)))))))
 
-(define-command set-input-data-from-saved 
-    (&key (actions (list (lambda-command set-input-data* (suggestion-values)
+(define-command set-input-data-from-saved
+    (&key (return-actions (list (lambda-command set-input-data* (suggestion-values)
                            "Load selected input-entry in current buffer's input fields."
                            (ps-write-input-data (input-data (first suggestion-values)))))))
-  "Set the input data from a list of saved data into the current buffer."
+  "Set the input data from a list of saved data into the current buffer.
+See also `set-input-data-from-saved-domain'."
   (prompt
-   :prompt "Write input data from:"
+   :prompt "Write input data from"
    :sources (make-instance 'input-data-source
-                           :actions actions)))
+                           :return-actions return-actions)))
 
 (define-command set-input-data-from-saved-domain
-    (&key (actions (list (lambda-command buffer-load* (suggestion-values)
+    (&key (return-actions (list (lambda-command buffer-load* (suggestion-values)
                            "Load selected input-entry in current buffer's input fields."
                            (ps-write-input-data (input-data (first suggestion-values)))))))
   "Set the input data from a list of saved data filtered by current domain into
-the current buffer."
+the current buffer.
+
+See alsy `set-input-data-from-saved'."
   (prompt
-   :prompt "Write input data from:"
+   :prompt "Write input data from"
    :sources (make-instance 'filtered-domain-input-data-source
-                           :actions actions)))
+                           :return-actions return-actions)))
 
 (defun input-fields ()
   "List all input entries objects saved in the local file."
-  (nfiles:content (inputs-file (current-buffer))))
+  (files:content (inputs-file (current-buffer))))

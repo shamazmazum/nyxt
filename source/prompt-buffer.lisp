@@ -17,7 +17,7 @@ All ARGS are declared as `ignorable'."
        ,@body)))
 
 (sera:eval-always
-  (define-class prompt-buffer (internal-buffer prompter:prompter)
+  (define-class prompt-buffer (network-buffer input-buffer modable-buffer prompter:prompter)
     ((window nil
              :type (or null window)
              :export nil
@@ -183,10 +183,9 @@ See also `hide-prompt-buffer'."
     (push prompt-buffer (active-prompt-buffers (window prompt-buffer)))
     (calispel:! (prompt-buffer-channel (window prompt-buffer)) prompt-buffer)
     (prompt-render prompt-buffer)
-    (ffi-window-set-prompt-buffer-height
-     (window prompt-buffer)
-     (or height
-         (prompt-buffer-open-height (window prompt-buffer))))
+    (setf (ffi-window-prompt-buffer-height (window prompt-buffer))
+          (or height
+              (prompt-buffer-open-height (window prompt-buffer))))
     (run-thread "Show prompt watcher"
       (let ((prompt-buffer prompt-buffer))
         (update-prompt-input prompt-buffer)
@@ -222,7 +221,7 @@ See also `show-prompt-buffer'."
     (if (active-prompt-buffers window)
         (let ((next-prompt-buffer (first (active-prompt-buffers window))))
           (show-prompt-buffer next-prompt-buffer))
-        (ffi-window-set-prompt-buffer-height window 0))))
+        (setf (ffi-window-prompt-buffer-height window) 0))))
 
 (defun suggestion-and-mark-count (prompt-buffer suggestions marks
                                   &key multi-selection-p pad-p)
@@ -478,9 +477,19 @@ Example use:
 
 \(prompt
   :prompt \"Test prompt\"
-  :sources (list (make-instance 'prompter:source :filter #'my-suggestion-filter)))
+  :sources (list (make-instance 'prompter:source :name \"Test\"
+                                                 :constructor '(\"foo\" \"bar\"))))
 
 See the documentation of `prompt-buffer' to know more about the options."
+    (unless *interactive-p*
+      (restart-case
+          (error 'nyxt-prompt-buffer-non-interactively)
+        (prompt-anyway () nil)
+        (cancel () (error 'nyxt-prompt-buffer-canceled))))
+    (alex:when-let ((prompt-text (getf args :prompt)))
+      (when (str:ends-with-p ":" prompt-text)
+        (log:warn "Prompt text ~s should not end with a ':'." prompt-text)
+        (setf (getf args :prompt) (string-right-trim (uiop:strcat ":" serapeum:whitespace) prompt-text))))
     (let ((prompt-object-channel (make-channel 1)))
       (ffi-within-renderer-thread
        *browser*

@@ -3,17 +3,17 @@
 
 (in-package :nyxt)
 
-(define-class init-directory-file (nfiles:config-file nyxt-lisp-file)
-  ((nfiles:base-path #p"")
-   (command-line-option :init
+(define-class config-directory-file (files:config-file nyxt-lisp-file)
+  ((files:base-path #p"")
+   (command-line-option :config
                         :accessor nil
                         :type keyword))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
-(define-class init-file (init-directory-file nfiles:virtual-file)
-  ((nfiles:base-path #p"init")
-   (command-line-option :init
+(define-class config-file (config-directory-file files:virtual-file)
+  ((files:base-path #p"config")
+   (command-line-option :config
                         :accessor nil
                         :type keyword))
   (:export-class-name-p t)
@@ -35,16 +35,16 @@
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
-(define-class auto-init-file (init-directory-file) ; TODO: Be consistent here for 3.0!
-  ((nfiles:base-path #p"auto-config")
+(define-class auto-config-file (config-directory-file)
+  ((files:base-path #p"auto-config")
    (command-line-option :auto-config
                         :accessor nil
                         :type keyword))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
-(defmethod nfiles:resolve ((profile nyxt-profile) (init-file init-directory-file))
-  (let* ((option (slot-value init-file 'command-line-option))
+(defmethod files:resolve ((profile nyxt-profile) (config-file config-directory-file))
+  (let* ((option (slot-value config-file 'command-line-option))
          (no-option (alex:make-keyword
                      (uiop:strcat "NO-" (symbol-name option)))))
     (if (getf *options* no-option)
@@ -56,17 +56,34 @@
               (log:warn "File ~s does not exist." path))
             path)))))
 
+(defparameter %report-existing-nyxt-2-config
+  (sera:once
+   (lambda (path)
+     (when (not (uiop:file-exists-p path))
+       (let ((nyxt-2-path (files:expand (make-instance 'config-file
+                                                       :base-path #p"init"))))
+         (when (uiop:file-exists-p nyxt-2-path)
+           (log:warn "Found ~a, possibly a Nyxt 2 configuration.
+Consider porting your configuration to ~a."
+                     nyxt-2-path path))))
+     nil)))
+
+(defmethod files:resolve ((profile nyxt-profile) (config-file config-file))
+  (let ((path (call-next-method)))
+    (funcall %report-existing-nyxt-2-config path)
+    path))
+
 (export-always '*auto-config-file*)
-(defvar *auto-config-file* (make-instance 'auto-init-file)
+(defvar *auto-config-file* (make-instance 'auto-config-file)
   "The generated configuration file.")
 
-(export-always '*init-file*)
-(defvar *init-file* (make-instance 'init-file)
-  "The initialization file.")
+(export-always '*config-file*)
+(defvar *config-file* (make-instance 'config-file)
+  "The configuration file entry point.")
 
 (define-class nyxt-source-directory (nyxt-file)
-  ((nfiles:base-path asdf-user::*dest-source-dir*)
-   (nfiles:name "source"))
+  ((files:base-path asdf-user::*dest-source-dir*)
+   (files:name "source"))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
@@ -76,9 +93,9 @@
 This is set globally so that it can be looked up if there is no
 `*browser*' instance.")
 
-(define-class extensions-directory (nfiles:data-file nyxt-file)
-  ((nfiles:base-path #p"extensions/")
-   (nfiles:name "extensions"))
+(define-class extensions-directory (files:data-file nyxt-file)
+  ((files:base-path #p"extensions/")
+   (files:name "extensions"))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
@@ -91,8 +108,8 @@ This is set globally so that extensions can be loaded even if there is no
 (export-always 'nyxt-source-registry)
 (defun nyxt-source-registry ()
   `(:source-registry
-    (:tree ,(nfiles:expand *extensions-directory*))
-    (:tree ,(nfiles:expand *source-directory*))
+    (:tree ,(files:expand *extensions-directory*))
+    (:tree ,(files:expand *source-directory*))
     :inherit-configuration))
 
 
@@ -146,7 +163,7 @@ Return NIL if not a class form."
                (forms class-form))))
 
 ;; TODO: Instantiate directly in read-init-*?
-(defmethod nfiles:deserialize ((profile nyxt-profile) (file auto-init-file) raw-content &key)
+(defmethod files:deserialize ((profile nyxt-profile) (file auto-config-file) raw-content &key)
   (flet ((make-init-form (form)
            (multiple-value-bind (name forms)
                (read-init-form-class form)
@@ -158,8 +175,8 @@ Return NIL if not a class form."
     (mapcar #'make-init-form
             (uiop:slurp-stream-forms raw-content))))
 
-(defmethod nfiles:serialize ((profile nyxt-profile) (file auto-init-file) stream &key)
-  (dolist (form (nfiles:content file))
+(defmethod files:serialize ((profile nyxt-profile) (file auto-config-file) stream &key)
+  (dolist (form (files:content file))
     (write
      (if (class-form-p form)
          (write-init-form-class form)
@@ -167,14 +184,14 @@ Return NIL if not a class form."
      :stream stream)
     (fresh-line stream)))
 
-(defmethod nfiles:write-file ((profile nyxt-profile) (file auto-init-file) &key &allow-other-keys)
+(defmethod files:write-file ((profile nyxt-profile) (file auto-config-file) &key &allow-other-keys)
   (let ((*print-case* :downcase)
         (*package* (find-package :nyxt-user)))
-    (log:info "Writing auto configuration to ~s." (nfiles:expand file))
+    (log:info "Writing auto configuration to ~s." (files:expand file))
     (call-next-method)))
 
 (defun auto-configure (&key form class-name slot (slot-value nil slot-value-p))
-  (nfiles:with-file-content (config *auto-config-file*)
+  (files:with-file-content (config *auto-config-file*)
     (if class-name
         (flet ((ensure-class-form (class-name)
                  (or (when config
@@ -324,6 +341,12 @@ Example:
   "Return a new ring buffer."
   (containers:make-ring-buffer size :last-in-first-out))
 
+(export-always 'last-word)
+(defun last-word (s)
+  (if (uiop:emptyp s)
+      ""
+      (alex:last-elt (sera:words s))))
+
 (export-always 'trim-list)
 (defun trim-list (list &optional (limit 100))
   (handler-case
@@ -388,18 +411,29 @@ See `on'."
                                    ,@body)
                              :name (quote ,handler-name))))))
 
+(defun guess-external-format (filename)
+  (or (swank-backend:guess-external-format filename)
+      (swank-backend:find-external-format "latin-1")
+      :default))
+
 (defun function-lambda-string (fun)
   "Like `function-lambda-expression' for the first value, but return a string.
 On failure, fall back to other means of finding the source.
 Return the lambda s-expression as a second value, if possible."
-  (alex:if-let ((expression (function-lambda-expression fun)))
+  (alex:if-let ((expression (when (functionp fun) (function-lambda-expression fun))))
     (values (let ((*print-case* :downcase)
                   (*print-pretty* t))
               (write-to-string expression))
             expression)
     (sera:and-let* ((definition (rest (swank:find-definition-for-thing fun)))
-                    (*package* (symbol-package (swank-backend:function-name fun)))
-                    (file-content (alexandria:read-file-into-string (first (alexandria:assoc-value definition :file))))
+                    (*package* (symbol-package (swank-backend:function-name
+                                                (if (functionp fun)
+                                                    fun
+                                                    (closer-mop:method-generic-function fun)))))
+                    (file (first (alexandria:assoc-value definition :file)))
+                    (file-content (alexandria:read-file-into-string
+                                   file
+                                   :external-format (guess-external-format file)))
                     (start-position (first (alexandria:assoc-value definition :position))))
       (restart-case
           (handler-bind ((reader-error (lambda (c)

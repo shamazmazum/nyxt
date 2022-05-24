@@ -3,15 +3,15 @@
 
 (in-package :nyxt)
 
-(define-class socket-file (nfiles:runtime-file nyxt-file)
-  ((nfiles:base-path #p"nyxt.socket")
+(define-class socket-file (files:runtime-file nyxt-file)
+  ((files:base-path #p"nyxt.socket")
    (editable-p nil))
   (:export-class-name-p t)
   (:export-accessor-names-p t)
   (:accessor-name-transformer (class*:make-name-transformer name))
   (:documentation "Socket files are typically stored in a dedicated directory."))
 
-(defmethod nfiles:resolve ((profile nyxt-profile) (socket socket-file))
+(defmethod files:resolve ((profile nyxt-profile) (socket socket-file))
   "Return finalized path for socket files."
   (if (getf *options* :no-socket)
       #p""
@@ -26,29 +26,29 @@
   "Path of the Unix socket used to communicate between different instances of
 Nyxt.
 
-If `nfiles:expand' resolves this to #p\"\", then Nyxt starts in multi-instance mode.
+If `files:expand' resolves this to #p\"\", then Nyxt starts in multi-instance mode.
 This means that re-running Nyxt will start a new instance of Nyxt instead of
 prompting the first instance.
 
-This path cannot be set from the initialization file because we want to be able
+This path cannot be set from the configuration file because we want to be able
 to set and use the socket without parsing any file.  Instead, the socket can be
 set from the corresponding command line option or the NYXT_SOCKET environment
 variable.")
 
-(export-always 'nyxt-init-file)
-(defun nyxt-init-file (&optional subpath)
-  "Return SUBPATH relative to `*init-file*'.
-Return #p\"\" if `*init-file*' expands to #p\"\".
+(export-always 'nyxt-config-file)
+(defun nyxt-config-file (&optional subpath)
+  "Return SUBPATH relative to `*config-file*'.
+Return #p\"\" if `*config-file*' expands to #p\"\".
 
 The .lisp extension is automatically appended.
 
 For instance, if we want to load some Slynk configuration code that lives in
 /PATH/TO/NYXT/CONFIG/DIRECTORY/my-slink.lisp:
 
-  (load-after-system :slynk (nyxt-init-file \"my-slink\"))"
+  (load-after-system :slynk (nyxt-config-file \"my-slink\"))"
   (if subpath
-      (nfiles:expand (make-instance 'init-file :base-path subpath))
-      (nfiles:expand *init-file*)))
+      (files:expand (make-instance 'config-file :base-path subpath))
+      (files:expand *config-file*)))
 
 (defun handle-malformed-cli-arg (condition)
   (format t "Error parsing argument ~a: ~a.~&" (opts:option condition) condition)
@@ -75,26 +75,26 @@ and not the build environment."
       (:name :system-information
        :long "system-information"
        :description "Print system information and exit.")
-      (:name :init
+      (:name :config
        :short #\i
-       :long "init"
+       :long "config"
        :arg-parser #'identity
-       :description (format nil "Set path to initialization file.
-Default: ~s" (nfiles:expand *init-file*)))
-      (:name :no-init
+       :description (format nil "Set path to configuration file.
+Default: ~s" (files:expand *config-file*)))
+      (:name :no-config
        :short #\I
-       :long "no-init"
-       :description "Do not load the initialization file.")
+       :long "no-config"
+       :description "Do not load the configuration file.")
       (:name :auto-config
        :short #\c
        :long "auto-config"
        :arg-parser #'identity
-       :description (format nil "Set path to auto-config file.
-Default: ~s" (nfiles:expand *auto-config-file*)))
+       :description (format nil "Set path to auto-configuration file.
+Default: ~s" (files:expand *auto-config-file*)))
       (:name :no-auto-config
        :short #\C
        :long "no-auto-config"
-       :description "Do not load the user auto-config file.")
+       :description "Do not load the user auto-configuration file.")
       (:name :socket
        :short #\s
        :long "socket"
@@ -111,14 +111,14 @@ The socket can also be set from the NYXT_SOCKET environment variable.")
        :long "eval"
        :arg-parser #'identity
        :description "Eval the Lisp expressions.  Can be specified multiple times.
-Without --quit or --remote, the evaluation is done after parsing the init file
+Without --quit or --remote, the evaluation is done after parsing the config file
 (if any) and before initializing the browser.")
       (:name :load
        :short #\l
        :long "load"
        :arg-parser #'identity
        :description "Load the Lisp file.  Can be specified multiple times.
-Without --quit or --remote, the loading is done after parsing the init file
+Without --quit or --remote, the loading is done after parsing the config file
 (if any) and before initializing the browser.")
       (:name :quit
        :short #\q
@@ -127,7 +127,7 @@ Without --quit or --remote, the loading is done after parsing the init file
       (:name :script
        :long "script"
        :arg-parser #'identity
-       :description "Load the Lisp file (skip #! line if any), skip init file, then exit.
+       :description "Load the Lisp file (skip #! line if any), skip config file, then exit.
 Set to '-' to read standard input instead.")
       (:name :remote
        :short #\r
@@ -171,7 +171,7 @@ Example: --with-file bookmarks=/path/to/bookmarks
     (destroy-thread* (socket-thread *browser*))
     ;; Warning: Don't attempt to remove socket-path if socket-thread was not
     ;; running or we risk remove an unrelated file.
-    (let ((socket (nfiles:expand *socket-file*)))
+    (let ((socket (files:expand *socket-file*)))
       (when (uiop:file-exists-p socket)
         (log:info "Deleting socket ~s." socket)
         (uiop:delete-file-if-exists socket))))
@@ -245,7 +245,7 @@ Don't run this from a REPL, prefer `start' instead."
 (defun load-lisp (file &key package)
   "Load the Lisp FILE (can also be a stream).
 Return the short error message and the full error message as second value."
-  (unless (nfiles:nil-pathname-p file)
+  (unless (files:nil-pathname-p file)
     (let ((*package* (or (find-package package) *package*)))
       (flet ((unsafe-load ()
                (cond
@@ -261,7 +261,7 @@ Return the short error message and the full error message as second value."
             (unsafe-load)
             (catch 'lisp-file-error
               (handler-bind ((error (lambda (c)
-                                      (let* ((error-message "Could not load the init file")
+                                      (let* ((error-message "Could not load the config file")
                                              (type-error-message (str:concat error-message
                                                                              " because of a type error"))
                                              (message (if (subtypep (type-of c) 'type-error)
@@ -272,7 +272,7 @@ Return the short error message and the full error message as second value."
                                              (full-message (format nil "~a: ~a~%~%~%~a" message c backtrace)))
                                         (throw 'lisp-file-error
                                           (if *browser*
-                                              (error-in-new-window "*Init file errors*" full-message)
+                                              (error-in-new-window "*Config file errors*" full-message)
                                               (values message full-message)))))))
                 (unsafe-load))))))))
 
@@ -281,15 +281,15 @@ Return the short error message and the full error message as second value."
   (prompt
    :prompt "Load file"
    :input (uiop:native-namestring
-           (let ((init-path (nfiles:expand *init-file*)))
-             (if (uiop:file-exists-p init-path)
-                 (uiop:pathname-directory-pathname init-path)
+           (let ((config-path (files:expand *config-file*)))
+             (if (uiop:file-exists-p config-path)
+                 (uiop:pathname-directory-pathname config-path)
                  (uiop:getcwd))))
    :extra-modes '(nyxt/file-manager-mode:file-manager-mode)
    :sources
    (make-instance 'nyxt/file-manager-mode:file-source
                   :extensions '("lisp")
-                  :actions (list (lambda-command load-file* (files)
+                  :return-actions (list (lambda-command load-file* (files)
                                    (dolist (file files)
                                      (load-lisp file)))))))
 
@@ -303,10 +303,10 @@ Return the short error message and the full error message as second value."
       ((or (list :before) (list :after) (list :around)) nil)
       (_ (remove-method #'customize-instance method)))))
 
-(define-command load-init-file (&key (init-file (nfiles:expand *init-file*)))
-  "Load or reload the INIT-FILE."
+(define-command load-config-file (&key (config-file (files:expand *config-file*)))
+  "Load or reload the CONFIG-FILE."
   (clean-configuration)
-  (load-lisp init-file :package (find-package :nyxt-user)))
+  (load-lisp config-file :package (find-package :nyxt-user)))
 
 (defun eval-expr (expr)
   "Evaluate the form EXPR (string) and print the result of the last expresion."
@@ -349,7 +349,7 @@ It takes URL-STRINGS so that the URL argument can be `cl-read' in case
     urls))
 
 (defun listen-socket ()
-  (nfiles:with-paths ((socket-path *socket-file*))
+  (files:with-paths ((socket-path *socket-file*))
     (let ((native-socket-path (uiop:native-namestring socket-path)))
       (ensure-directories-exist socket-path)
       ;; TODO: Catch error against race conditions?
@@ -381,7 +381,7 @@ It takes URL-STRINGS so that the URL argument can be `cl-read' in case
   (ignore-errors
    (iolib:with-open-socket (s :address-family :local
                               :remote-filename (uiop:native-namestring
-                                                (nfiles:expand *socket-file*)))
+                                                (files:expand *socket-file*)))
      (iolib:socket-connected-p s))))
 
 (defun file-is-socket-p (path)
@@ -405,7 +405,7 @@ It takes URL-STRINGS so that the URL argument can be `cl-read' in case
 (defun listen-or-query-socket (urls)
   "If another Nyxt is listening on the socket, tell it to open URLS.
 Otherwise bind socket and return the listening thread."
-  (let ((socket-path (nfiles:expand *socket-file*)))
+  (let ((socket-path (files:expand *socket-file*)))
     (cond
       ((listening-socket-p)
        (if urls
@@ -433,7 +433,7 @@ Otherwise bind socket and return the listening thread."
       (progn
         (iolib:with-open-socket (s :address-family :local
                                    :remote-filename (uiop:native-namestring
-                                                     (nfiles:expand *socket-file*)))
+                                                     (files:expand *socket-file*)))
           (write-string expr s))
         (uiop:quit))
       (progn
@@ -480,8 +480,12 @@ Examples:
   ;; Extensions should be made accessible straight from the beginning,
   ;; e.g. before a script is run.
   (unless +renderer+
-    (log:warn "No renderer set. I will not be able to render pages.~
-               Consider '(ql:quickload :nyxt/gi-gtk)."))
+    (log:warn "No renderer set, Nyxt will not be able to render pages.  Try:
+
+\(progn
+ (asdf:load-system :nyxt/gi-gtk)
+ (nyxt:ffi-initialize nyxt:*browser* '() (local-time:now)))
+"))
   (pushnew 'nyxt-source-registry asdf:*default-source-registries*)
   (asdf:clear-configuration)
 
@@ -516,7 +520,7 @@ Examples:
        (princ (system-information)))
 
       (list-profiles
-       (load-lisp (nfiles:expand *init-file*) :package (find-package :nyxt-user))
+       (load-lisp (files:expand *config-file*) :package (find-package :nyxt-user))
        (mapcar (lambda (profile-class)
                  (format t "~a~10t~a~&"
                          (profile-class-name profile-class)
@@ -556,35 +560,35 @@ Examples:
 (defun start-load-or-eval ()
   "Evaluate Lisp.
 The evaluation may happen on its own instance or on an already running instance."
-  (load-lisp (nfiles:expand *auto-config-file*) :package (find-package :nyxt-user))
-  (load-lisp (nfiles:expand *init-file*):package (find-package :nyxt-user))
+  (load-lisp (files:expand *auto-config-file*) :package (find-package :nyxt-user))
+  (load-lisp (files:expand *config-file*):package (find-package :nyxt-user))
   (load-or-eval :remote (getf *options* :remote)))
 
 (defun start-browser (url-strings)
   "Start Nyxt.
 First load `*auto-config-file*' if any.
-Then load `*init-file*' if any.
+Then load `*config-file*' if any.
 Instantiate `*browser*'.
 Finally, run the browser, load URL-STRINGS if any, then run
 `*after-init-hook*'."
   (let* ((urls (strings->urls url-strings))
-         (thread (when (nfiles:expand *socket-file*)
+         (thread (when (files:expand *socket-file*)
                    (listen-or-query-socket urls)))
          (startup-timestamp (local-time:now))
          (startup-error-reporter nil))
     (when (or thread
               (getf *options* :no-socket)
-              (null (nfiles:expand *socket-file*)))
+              (null (files:expand *socket-file*)))
       (format t "Nyxt version ~a~&" +version+)
-      (load-lisp (nfiles:expand *auto-config-file*) :package (find-package :nyxt-user))
-      (match (multiple-value-list (load-lisp (nfiles:expand *init-file*)
+      (load-lisp (files:expand *auto-config-file*) :package (find-package :nyxt-user))
+      (match (multiple-value-list (load-lisp (files:expand *config-file*)
                                              :package (find-package :nyxt-user)))
         (nil nil)
         ((list message full-message)
          (setf startup-error-reporter
                (lambda ()
                  (echo-warning "~a." message)
-                 (error-in-new-window "*Init file errors*" full-message)))))
+                 (error-in-new-window "*Config file errors*" full-message)))))
       (load-or-eval :remote nil)
       (setf *browser* (make-instance 'browser
                                      :startup-error-reporter-function startup-error-reporter

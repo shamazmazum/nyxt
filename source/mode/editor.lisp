@@ -2,8 +2,9 @@
 ;;;; SPDX-License-Identifier: BSD-3-Clause
 
 (uiop:define-package :nyxt/editor-mode
-    (:use :common-lisp :nyxt)
+  (:use :common-lisp :nyxt)
   (:import-from #:keymap #:define-key #:define-scheme)
+  (:import-from #:class-star #:define-class)
   (:documentation "Mode for editors."))
 (in-package :nyxt/editor-mode)
 
@@ -33,6 +34,24 @@ get/set-content (which is necessary for operation)."
          (insert-content (ps:ps (ps:chain document (write (ps:lisp content))))))
     (ffi-buffer-evaluate-javascript-async (buffer editor) insert-content)))
 
+(define-class editor-buffer (context-buffer modable-buffer document-buffer input-buffer)
+  ((nyxt:url (quri:uri ""))
+   (nyxt:title "*Editor*"))
+  (:export-class-name-p t)
+  (:export-accessor-names-p t)
+  (:export-predicate-name-p t)
+  (:accessor-name-transformer (class*:make-name-transformer name))
+  (:metaclass user-class)
+  (:documentation "Each editor buffer matches a file. Each editor buffer
+contains an `nyxt/editor-mode:editor-mode' instance (or a subclass thereof)."))
+
+(defmethod file ((buffer editor-buffer))
+  (uiop:parse-native-namestring (quri:uri-path (url buffer))))
+
+(defmethod nyxt:default-modes :around ((buffer editor-buffer))
+  ;; REVIEW: Really remove document-mode from editor-buffer?
+  (remove 'document-mode (call-next-method)))
+
 (defmethod editor ((editor-buffer editor-buffer))
   (find-submode 'editor-mode editor-buffer))
 
@@ -56,7 +75,7 @@ get/set-content (which is necessary for operation)."
     (if (uiop:file-exists-p file)
         (set-content editor (uiop:read-file-string file))
         (set-content editor ""))
-    (echo "Editor buffer cannot open file without configured editor mode.")))
+    (echo "Editor buffer cannot open file without configured `editor-mode'.")))
 
 (define-command editor-open-file (&key (buffer (current-buffer)))
   "Open a file in the internal editor."
@@ -67,14 +86,14 @@ get/set-content (which is necessary for operation)."
                 :sources
                 (list (make-instance 'nyxt/file-manager-mode:file-source
                                      :name "Absolute file path"
-                                     :actions '(identity))
+                                     :return-actions '(identity))
                       (make-instance 'prompter:raw-source
                                      :name "New file")))))
-    (open-file-with-editor buffer file)
     ;; TODO: Maybe make `editor-mode' and `editor-buffer' pathname-friendly?
-    (setf (file buffer) (uiop:native-namestring file))
-    (setf (title buffer) (uiop:native-namestring file))
-    (setf (url buffer) (quri::make-uri-file :path (uiop:native-namestring file)))))
+    (let ((native-path (uiop:native-namestring file)))
+      (setf (title buffer) native-path)
+      (setf (url buffer) (quri::make-uri-file :path native-path)))
+    (open-file-with-editor buffer file)))
 
 (define-command editor-write-file (&key (buffer (current-buffer)) (if-exists :error))
   "Write the FILE of the BUFFER to storage."
@@ -88,6 +107,6 @@ get/set-content (which is necessary for operation)."
 
 (define-command-global open-new-editor-with-file ()
   "Open a new editor and query a file."
-  (let ((buffer (make-editor-buffer)))
+  (let ((buffer (make-instance 'editor-buffer :title "*Editor*")))
     (set-current-buffer buffer)
     (editor-open-file :buffer buffer)))

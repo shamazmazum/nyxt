@@ -65,8 +65,8 @@ The channel is popped when a prompt buffer is hidden.")
     256
     :documentation "The height of the prompt buffer when open.")
    (input-dispatcher
-    #'dispatch-input-event
-    :type function
+    'dispatch-input-event
+    :type (or function-symbol function)
     :documentation "Function to process input events.
 It takes EVENT, BUFFER, WINDOW and PRINTABLE-P parameters.
 Cannot be null.")
@@ -103,6 +103,14 @@ The handlers take the window as argument."))
   (:documentation "A window is a view where buffers are displayed.")
   (:metaclass user-class))
 
+(defmethod initialize-instance :after ((window window) &key (browser *browser*)
+                                       &allow-other-keys)
+  "Set ID."
+  (when browser
+    (setf (id window) (get-unique-identifier browser))
+    (setf (slot-value browser 'last-active-window) window))
+  window)
+
 (defmethod print-object ((window window) stream)
   (print-unreadable-object (window stream :type t :identity t)
     (format stream "~a" (id window))))
@@ -130,7 +138,7 @@ The handlers take the window as argument."))
   "Prompt for a panel buffer to be deleted."
   (let ((panels (or panels
                     (prompt
-                     :prompt "Delete a panel buffer:"
+                     :prompt "Delete a panel buffer"
                      :sources (make-instance 'panel-buffer-source
                                              :window window)))))
     (mapc (lambda (i) (window-delete-panel-buffer window i)) panels)))
@@ -247,12 +255,12 @@ See `define-panel' for the description of the arguments."
   ((prompter:name "Windows")
    (prompter:multi-selection-p t)
    (prompter:constructor (window-list))
-   (prompter:actions (list (lambda-mapped-command window-delete)))))
+   (prompter:return-actions (list (lambda-mapped-command window-delete)))))
 
 (define-command delete-window ()
   "Delete the queried window(s)."
   (prompt
-   :prompt "Delete window(s):"
+   :prompt "Delete window(s)"
    :sources (make-instance 'window-source)))
 
 (define-command delete-current-window (&optional (window (current-window)))
@@ -283,16 +291,16 @@ When `skip-renderer-resize' is non-nil, don't ask the renderer to "
     (toggle-message-buffer :show-p (not fullscreen))))
 
 (defun enable-status-buffer (&optional (window (current-window)))
-  (ffi-window-set-status-buffer-height window (height (status-buffer window))))
+  (setf (ffi-window-status-buffer-height window) (height (status-buffer window))))
 
 (defun disable-status-buffer (&optional (window (current-window)))
-  (ffi-window-set-status-buffer-height window 0))
+  (setf (ffi-window-status-buffer-height window) 0))
 
 (defun enable-message-buffer (&optional (window (current-window)))
-  (ffi-window-set-message-buffer-height window (message-buffer-height window)))
+  (setf (ffi-window-message-buffer-height window) (message-buffer-height window)))
 
 (defun disable-message-buffer (&optional (window (current-window)))
-  (ffi-window-set-message-buffer-height window 0))
+  (setf (ffi-window-message-buffer-height window) 0))
 
 (define-command toggle-toolbars (&optional (window (current-window)))
   "Toggle the visibility of the message and status buffer areas."
@@ -309,7 +317,7 @@ If SHOW-P is provided:
   (cond ((and show-provided-p show-p)
          (enable-status-buffer window))
         ((and (not show-provided-p)
-              (zerop (ffi-window-get-status-buffer-height window)))
+              (zerop (ffi-window-status-buffer-height window)))
          (enable-status-buffer window))
         (t (disable-status-buffer window))))
 
@@ -323,6 +331,6 @@ If SHOW-P is provided:
   (cond ((and show-provided-p show-p)
          (enable-message-buffer window))
         ((and (not show-provided-p)
-              (zerop (ffi-window-get-message-buffer-height window)))
+              (zerop (ffi-window-message-buffer-height window)))
          (enable-message-buffer window))
         (t (disable-message-buffer window))))

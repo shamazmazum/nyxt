@@ -135,15 +135,14 @@ A naive benchmark on a 16 Mpbs bandwidth gives us
                  (:file "mode")
                  (:file "search-engine")
                  (:file "browser")
+                 (:file "foreign-interface")
                  (:file "clipboard")
                  (:file "input")
                  (:file "prompt-buffer")
                  (:file "command-commands")
                  (:file "recent-buffers")
                  (:file "history")
-                 (:file "autofill")
-                 (:file "external-editor")
-                 (:file "no-procrastinate")))
+                 (:file "external-editor")))
                (:module "Core modes"
                 :pathname "mode"
                 :depends-on ("Core")
@@ -153,14 +152,14 @@ A naive benchmark on a 16 Mpbs bandwidth gives us
                  (:file "prompt-buffer" :depends-on ("input-edit"))
                  (:file "file-manager")
                  (:file "buffer-listing")
-                 (:file "base" :depends-on ("buffer-listing" "file-manager"))
-                 (:file "help")
                  (:file "message")
                  (:file "passthrough")
                  (:file "history-tree")
                  (:file "list-history")
-                 (:file "web" :depends-on ("history-tree" "list-history"))
-                 (:file "style")
+                 (:file "document")
+                 (:file "history" :depends-on ("history-tree" "list-history"))
+                 (:file "bookmarklets")
+                 (:file "style" :depends-on ("bookmarklets"))
                  (:file "certificate-exception")
                  (:file "emacs")
                  (:file "vi")
@@ -168,28 +167,15 @@ A naive benchmark on a 16 Mpbs bandwidth gives us
                  (:file "proxy")
                  (:file "download")
                  (:file "process")))
-               (:module "file-manager-mode deps"
-                :pathname ""
+               (:file "mode/base" :depends-on ("Core modes"))
+               (:module "document-mode commands"
+                :pathname "mode"
                 :depends-on ("Core modes")
                 :components
-                ((:file "password")
-                 (:file "bookmark")
-                 (:file "mode/bookmark-frequent-visits" :depends-on ("bookmark"))
-                 (:file "mode/bookmark" :depends-on ("bookmark"))))
-               (:module "web-mode commands"
-                :pathname "mode"
-                :depends-on ("Core modes" "file-manager-mode deps")
-                :components
-                ((:file "bookmarklets")
-                 (:file "element-hint" :depends-on ("search-buffer"))
-                 (:file "element-frame")
-                 (:file "jump-heading")
-                 (:file "summarize")
-                 (:file "scroll")
-                 (:file "search-buffer")
-                 (:file "spell-check")
-                 (:file "zoom")))
-               (:file "annotate" :depends-on ("Core modes"))
+                ((:file "hint")
+                 (:file "hint-prompt-buffer" :depends-on ("hint"))
+                 (:file "search-buffer" :depends-on ("hint"))
+                 (:file "spell-check")))
                #+quicklisp
                (:file "lisp-system" :depends-on ("Core modes"))
                (:file "status" :depends-on ("Core"))
@@ -213,7 +199,12 @@ A naive benchmark on a 16 Mpbs bandwidth gives us
                 :pathname "mode"
                 :depends-on ("Core modes")
                 :components
-                ((:file "repl")
+                ((:file "annotate")
+                 (:file "autofill")
+                 (:file "bookmark")
+                 (:file "bookmark-frequent-visits" :depends-on ("bookmark"))
+                 (:file "password")
+                 (:file "repl")
                  (:file "small-web")
                  (:file "reading-line")
                  (:file "no-image")

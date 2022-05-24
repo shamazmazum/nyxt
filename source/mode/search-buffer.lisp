@@ -1,7 +1,35 @@
 ;;;; SPDX-FileCopyrightText: Atlas Engineer LLC
 ;;;; SPDX-License-Identifier: BSD-3-Clause
 
-(in-package :nyxt/web-mode)
+(uiop:define-package :nyxt/search-buffer-mode
+  (:use :common-lisp :nyxt)
+  (:import-from #:keymap #:define-key #:define-scheme)
+  (:import-from #:class-star #:define-class)
+  (:import-from #:serapeum
+                #:export-always
+                #:->)
+  (:documentation "Mode for element hints."))
+(in-package :nyxt/search-buffer-mode)
+
+(define-mode search-buffer-mode (nyxt/hint-mode:hint-mode)
+  "Mode for searching text withing."
+  ((rememberable-p nil)
+   (keymap-scheme
+    (define-scheme "web"
+      scheme:cua
+      (list
+       "C-f" 'search-buffer
+       "f3" 'search-buffer
+       "M-f" 'remove-search-hints)
+      scheme:emacs
+      (list
+       "C-s s" 'search-buffer
+       "C-s k" 'remove-search-hints)
+
+      scheme:vi-normal
+      (list
+       "/" 'search-buffer
+       "?" 'remove-search-hints)))))
 
 (define-parenscript query-buffer (&key query (case-sensitive-p nil))
   (defvar *identifier* 0)
@@ -13,8 +41,8 @@
     (unless (nyxt/ps:qs document "#nyxt-stylesheet")
       (ps:try
        (ps:let* ((style-element (ps:chain document (create-element "style")))
-                 (box-style (ps:lisp (box-style (find-submode 'web-mode))))
-                 (highlighted-style (ps:lisp (highlighted-box-style (find-submode 'web-mode)))))
+                 (box-style (ps:lisp (nyxt/hint-mode:box-style (find-submode 'search-buffer-mode))))
+                 (highlighted-style (ps:lisp (nyxt/hint-mode:highlighted-box-style (find-submode 'search-buffer-mode)))))
          (setf (ps:@ style-element id) "nyxt-stylesheet")
          (ps:chain document head (append-child style-element))
          (ps:chain style-element sheet (insert-rule box-style 0))
@@ -35,9 +63,9 @@
     "Return the substring and preceding/trailing text for a given
      index."
     (let* ((character-preview-count 40))
-           (ps:chain string
-                     (substring (- index character-preview-count)
-                                (+ index (length query) character-preview-count)))))
+      (ps:chain string
+                (substring (- index character-preview-count)
+                           (+ index (length query) character-preview-count)))))
 
   (defun get-substring-indices (query string)
     "Get the indices of all matching substrings."
@@ -113,6 +141,9 @@
    (buffer))
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
+(defmethod nyxt/hint-mode:identifier ((match search-match))
+  (identifier match))
+
 (defmethod prompter:object-attributes ((match search-match))
   `(("Default" ,(body match))
     ("ID" ,(princ-to-string (identifier match)))
@@ -131,12 +162,37 @@
   (peval (ps:dolist (node (nyxt/ps:qsa document ".nyxt-search-node"))
              (ps:chain node (replace-with (aref *nodes* (ps:@ node id)))))))
 
+(defun prompt-buffer-selection-highlight-hint (&key suggestions scroll follow
+                                                 (prompt-buffer (current-prompt-buffer))
+                                                 (buffer (current-buffer)))
+  (let ((hint (flet ((hintp (hint-suggestion)
+                       (if (typep hint-suggestion '(or plump:element search-match))
+                           hint-suggestion
+                           nil)))
+                (if suggestions
+                    (hintp (prompter:value (first suggestions)))
+                    (when prompt-buffer
+                      (hintp (current-suggestion-value)))))))
+    (when hint
+      (when (and follow
+                 (slot-exists-p hint 'buffer)
+                 (not (equal (buffer hint) buffer)))
+        (set-current-buffer (buffer hint))
+        (setf buffer (buffer hint)))
+      (if (or
+           (not (slot-exists-p hint 'buffer))
+           (and (slot-exists-p hint 'buffer)
+                (equal (buffer hint) buffer)))
+          (with-current-buffer buffer
+            (nyxt/hint-mode::highlight-selected-hint :element hint :scroll scroll))
+          (nyxt/hint-mode:remove-focus)))))
+
 (define-class search-buffer-source (prompter:source)
   ((case-sensitive-p nil)
    (buffer (current-buffer))
    (minimum-search-length 3)
    (prompter:name "Search buffer")
-   (prompter:follow-p t)
+   (prompter:selection-actions-enabled-p t)
    (prompter:filter nil)
    (prompter:filter-preprocessor
     (lambda (preprocessed-suggestions source input)
@@ -153,15 +209,15 @@
           (progn
             (remove-search-hints)
             '()))))
-   (prompter:follow-mode-functions (lambda (suggestion)
-                                     ;; TODO: rewrite prompt-buffer-selection-highlight-hint
-                                     (set-current-buffer (buffer suggestion) :focus nil)
-                                     (prompt-buffer-selection-highlight-hint :scroll t)))
+   (prompter:selection-actions (lambda (suggestion)
+                                 ;; TODO: rewrite prompt-buffer-selection-highlight-hint
+                                 (set-current-buffer (buffer suggestion) :focus nil)
+                                 (prompt-buffer-selection-highlight-hint :scroll t)))
    (prompter:destructor (lambda (prompter source)
                           (declare (ignore prompter source))
                           (unless (keep-search-hints-p (current-buffer))
                             (remove-search-hints))
-                          (remove-focus))))
+                          (nyxt/hint-mode:remove-focus))))
   (:export-accessor-names-p t)
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name))
@@ -180,14 +236,14 @@ prompt, Set BUFFER's `keep-search-hints-p' slot to nil.
 
 Example:
 
-  (defmethod customize-instance ((buffer buffer) &key)
-    (setf (keep-search-hints-p buffer) nil))"
+  (define-configuration buffer
+    ((keep-search-hints-p nil)))"
   (prompt
    :prompt "Search text"
    :sources (list
              (make-instance 'search-buffer-source
                             :case-sensitive-p case-sensitive-p
-                            :actions (list (lambda (search-match)
+                            :return-actions (list (lambda (search-match)
                                              (unless (keep-search-hints-p (current-buffer))
                                                (remove-search-hints))
                                              search-match))))))
@@ -197,7 +253,7 @@ Example:
   (let ((buffers (prompt
                   :prompt "Search buffer(s)"
                   :sources (list (make-instance 'buffer-source ; TODO: Define class?
-                                                :actions '()
+                                                :return-actions '()
                                                 :multi-selection-p t)))))
     (prompt
      :prompt "Search text"

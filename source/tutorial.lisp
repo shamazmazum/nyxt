@@ -29,10 +29,10 @@ Multiple key presses can be chained: in 'C-x C-s', you would have to press
     (list-command-information '(set-url reload-current-buffer
                                 set-url-new-buffer
                                 switch-buffer-previous
-                                nyxt/web-mode:history-backwards
-                                nyxt/web-mode:history-forwards
-                                nyxt/web-mode:follow-hint
-                                nyxt/web-mode:follow-hint-new-buffer
+                                nyxt/history-mode:history-backwards
+                                nyxt/history-mode:history-forwards
+                                nyxt/hint-mode:follow-hint
+                                nyxt/hint-mode:follow-hint-new-buffer
                                 quit execute-command describe-bindings)))
 
    (:h3 "Buffers")
@@ -101,12 +101,12 @@ active modes, the URL, and the title of the current buffer.")
    (:h3 "Moving within a buffer")
    (:p "To move within a buffer, several commands are provided:")
    (:ul
-    (list-command-information '(nyxt/web-mode:scroll-down
-                                nyxt/web-mode:scroll-up
-                                nyxt/web-mode:scroll-page-down
-                                nyxt/web-mode:scroll-page-up
-                                nyxt/web-mode:scroll-to-bottom
-                                nyxt/web-mode:scroll-to-top)))
+    (list-command-information '(nyxt/document-mode:scroll-down
+                                nyxt/document-mode:scroll-up
+                                nyxt/document-mode:scroll-page-down
+                                nyxt/document-mode:scroll-page-up
+                                nyxt/document-mode:scroll-to-bottom
+                                nyxt/document-mode:scroll-to-top)))
    (:h3 "Setting the URL")
    (:p "When ambiguous URLs are inputted, Nyxt will attempt the best guess it
 can. If you do not supply a protocol in a URL, HTTPS will be assumed. To
@@ -121,37 +121,37 @@ full URL including the 'http://' prefix.")
    (:p "Unlike other web browsers, Nyxt provides powerful ways of copying
    and pasting content via different commands. Starting from:")
    (:ul
-    (list-command-information '(nyxt/web-mode:copy nyxt/web-mode:paste)))
+    (list-command-information '(nyxt/document-mode:copy nyxt/document-mode:paste)))
    (:p "Passing through webpage's data:")
    (:ul
-    (list-command-information '(copy-url copy-title nyxt/web-mode:copy-placeholder nyxt/web-mode:copy-hint-url)))
+    (list-command-information '(copy-url copy-title nyxt/document-mode:copy-placeholder nyxt/hint-mode:copy-hint-url)))
    (:p "Leveraging password managers: ")
    (:ul
-    (list-command-information '(copy-username copy-password copy-password-prompt-details)))
+    (list-command-information '(nyxt/password-mode:copy-username nyxt/password-mode:copy-password nyxt/password-mode:copy-password-prompt-details)))
    (:p "And more: ")
    (:ul
-    (list-command-information '(nyxt/web-mode:paste-from-clipboard-ring show-system-information)))
+    (list-command-information '(nyxt/document-mode:paste-from-clipboard-ring show-system-information)))
    (:h3 "Link navigation")
    (:p "Link-hinting allows you to visit URLs on a page without using the mouse.
 Invoke one of the commands below: several hints will appear on screen and all
 links on the page will be listed in the prompt buffer.  You can select the hints
 by matching against the hint, the URL or the title.")
    (:ul
-    (list-command-information '(nyxt/web-mode:follow-hint
-                                nyxt/web-mode:follow-hint-new-buffer-focus
-                                nyxt/web-mode:follow-hint-new-buffer)))
+    (list-command-information '(nyxt/hint-mode:follow-hint
+                                nyxt/hint-mode:follow-hint-new-buffer-focus
+                                nyxt/hint-mode:follow-hint-new-buffer)))
    (:h3 "Using the buffer history")
    (:p "History is represented as a tree that you can traverse: when you go back
 in history, then follow a new URL, it effectively creates a new branch without
 deleting the old path. The tree makes sure you never lose track of where you've
 been.")
    (:ul
-    (list-command-information '(nyxt/web-mode:history-forwards
-                                nyxt/web-mode:history-backwards
-                                nyxt/web-mode:history-forwards-query
-                                nyxt/web-mode:history-backwards-query
-                                nyxt/web-mode:history-forwards-all-query
-                                nyxt/web-mode:history-all-query)))
+    (list-command-information '(nyxt/history-mode:history-forwards
+                                nyxt/history-mode:history-backwards
+                                nyxt/history-mode:history-forwards-query
+                                nyxt/history-mode:history-backwards-query
+                                nyxt/history-mode:history-forwards-all-query
+                                nyxt/history-mode:history-all-query)))
    (:p "You can also view a full tree of the history for a given buffer by
 invoking the command 'buffer-history-tree'.")
    (:h3 "Searching")
@@ -159,14 +159,13 @@ invoking the command 'buffer-history-tree'.")
    (:p "You can view suggestions for search results in the prompt buffer in one
 place rather than having to jump around in a buffer (or multiple buffers).")
    (:ul
-    (list-command-information '(nyxt/web-mode:search-buffer
-                                nyxt/web-mode:search-buffers
-                                nyxt/web-mode:remove-search-hints)))
+    (list-command-information '(nyxt/search-buffer-mode:search-buffer
+                                nyxt/search-buffer-mode:search-buffers
+                                nyxt/search-buffer-mode:remove-search-hints)))
    (:h3 "Bookmarks")
    (:p "The bookmark file "
-       (:code (let ((buffer (make-instance 'buffer)))
-                (unwind-protect (nfiles:expand (bookmarks-file buffer))
-                  (buffer-delete buffer))))
+       (:code (let ((mode (make-instance 'nyxt/bookmark-mode:bookmark-mode)))
+                (files:expand (nyxt/bookmark-mode:bookmarks-file mode))))
        " is made to be human readable and editable.
 Bookmarks can have the following settings:")
    (:ul
@@ -175,12 +174,12 @@ Bookmarks can have the following settings:")
     (:li (:code ":tags") ": A list of strings.  Useful to categorize and filter bookmarks."))
    (:p "Bookmark-related commands")
    (:ul
-    (list-command-information '(bookmark-current-url bookmark-buffer-url
-                                bookmark-url nyxt/web-mode:bookmark-hint
-                                set-url-from-bookmark delete-bookmark
+    (list-command-information '(nyxt/bookmark-mode:bookmark-current-url nyxt/bookmark-mode:bookmark-buffer-url
+                                nyxt/bookmark-mode:bookmark-url nyxt/bookmark-mode:bookmark-hint
+                                nyxt/bookmark-mode:set-url-from-bookmark nyxt/bookmark-mode:delete-bookmark
                                 nyxt/bookmark-mode:list-bookmarks
-                                nyxt/bookmark-frequent-visits:bookmark-frequent-visits-mode
-                                import-bookmarks-from-html)))
+                                nyxt/bookmark-mode:import-bookmarks-from-html
+                                nyxt/bookmark-frequent-visits:bookmark-frequent-visits-mode)))
    (:h3 "Annotations")
    (:p "Annotations can have the following settings:")
    (:ul
@@ -192,8 +191,8 @@ the URL.")
     (:li (:code ":tags") ": A list of strings.  Useful to categorize and filter annotations."))
    (:p "Annotate-related commands")
    (:ul
-    (list-command-information '(annotate-current-url annotate-highlighted-text
-                                show-annotation show-annotations show-annotations-for-current-url)))
+    (list-command-information '(nyxt/annotate-mode:annotate-current-url nyxt/annotate-mode:annotate-highlighted-text
+                                nyxt/annotate-mode:show-annotation nyxt/annotate-mode:show-annotations nyxt/annotate-mode:show-annotations-for-current-url)))
    (:h3 "Passthrough mode")
    (:p "The command " (:code "passthrough-mode") " forwards all keys to the
 renderer. For instance, using the default binding of Nyxt (" (:code "web-cua-map") ") the
@@ -221,26 +220,26 @@ buffer.")
    (:h3 "Structural navigation")
    (:p "It is possible to navigate using the structure in between the file: ")
    (:ul
-    (list-command-information '(nyxt/web-mode:jump-to-heading
-                                nyxt/web-mode:previous-heading
-                                nyxt/web-mode:next-heading
-                                nyxt/web-mode:jump-to-heading-buffers)))
+    (list-command-information '(nyxt/document-mode:jump-to-heading
+                                nyxt/document-mode:previous-heading
+                                nyxt/document-mode:next-heading
+                                nyxt/document-mode:jump-to-heading-buffers)))
    (:p "And navigate to interconnected files: ")
    (:ul
-    (list-command-information '(nyxt/web-mode:go-next
-                                nyxt/web-mode:go-previous
-                                nyxt/web-mode:go-up
-                                nyxt/web-mode:go-to-homepage)))
+    (list-command-information '(nyxt/document-mode:go-next
+                                nyxt/document-mode:go-previous
+                                nyxt/document-mode:go-up
+                                nyxt/document-mode:go-to-homepage)))
    (:h3 "Spelling check")
    (:p "Several commands are provided to spell check words. The default is
 English but it is possible to change the slot for other languages:")
    (:ul
-    (list-command-information '(nyxt/web-mode:spell-check-word
-                                nyxt/web-mode:spell-check-word-at-cursor
-                                nyxt/web-mode:spell-check-suggest-word
-                                nyxt/web-mode:spell-check-highlighted-word
-                                nyxt/web-mode:spell-check-list-languages
-                                nyxt/web-mode:spell-check-text-input)))
+    (list-command-information '(nyxt/spell-check-mode:spell-check-word
+                                nyxt/spell-check-mode:spell-check-word-at-cursor
+                                nyxt/spell-check-mode:spell-check-suggest-word
+                                nyxt/spell-check-mode:spell-check-highlighted-word
+                                nyxt/spell-check-mode:spell-check-list-languages
+                                nyxt/spell-check-mode:spell-check-text-input)))
    (:h3 "Visual mode")
    (:p "Select text without a mouse. Nyxt's "
        (:code "visual-mode") " imitates Vim's visual mode (and comes with the
@@ -309,11 +308,10 @@ overriding any mode keybinding. If you want to toggle mark with C-space,
 you'll need to set your own override-map such that C-space is not bound.
 An example:")
    (:pre (:code "
-\(defmethod customize-instance ((buffer buffer) &key)
-  (setf (override-map buffer)
-        (let ((map (make-keymap \"override-map\")))
-          (define-key map
-            \"M-x\" 'execute-command))))"))
+\(define-configuration buffer
+  ((override-map (let ((map (make-keymap \"override-map\")))
+                   (define-key map
+                     \"M-x\" 'execute-command)))))"))
 
    (:h3 "Automation")
    (:p "Nyxt has many facilities for automation. For instance, it is possible to
@@ -322,8 +320,8 @@ automate the reading experience:")
     (list-command-information '(nyxt/cruise-control-mode:cruise-control-mode)))
    (:p "Symmetrically, it is possible to automate the filling of forms: ")
    (:ul
-    (list-command-information '(autofill
-                                nyxt/web-mode::toggle-checkboxes)))
+    (list-command-information '(nyxt/autofill-mode:autofill
+                                nyxt/bookmarklets-mode::toggle-checkboxes)))
    (:p "In addition, it is possible to automate actions over time: "
    (:ul
     (list-command-information '(nyxt/watch-mode:watch-mode))
@@ -344,15 +342,15 @@ for other modes previously mentioned, such as " (:code
 'nyxt/repeat-mode:repeat-mode) ". The extension relationship goes further, since
 " (:code 'nyxt/cruise-control-mode:cruise-control-mode) " is in its turn an
 extension and a composition of " (:code 'nyxt/repeat-mode:repeat-mode) " and "
-(:code 'nyxt/web-mode:scroll-down) ". Further extensions and compositions can be
+(:code 'nyxt/document-mode:scroll-down) ". Further extensions and compositions can be
 creatively tailor-made by users to automate their own use of Nyxt.")
    (:h3 "Miscellaneous")
    (:ul
-    (list-command-information '(nyxt/web-mode:zoom-page
-                                nyxt/web-mode:unzoom-page
-                                nyxt/web-mode:reset-page-zoom
-                                nyxt/web-mode::autofill
-                                download-open-file
+    (list-command-information '(nyxt/document-mode:zoom-page
+                                nyxt/document-mode:unzoom-page
+                                nyxt/document-mode:reset-page-zoom
+                                nyxt/autofill-mode::autofill
+                                nyxt/file-manager-mode:download-open-file
                                 edit-with-external-editor)))
 
    (:h2 "The Nyxt help system")

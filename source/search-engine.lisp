@@ -80,7 +80,7 @@ Example (Tor-proxied completion function for Wikipedia):
   "Return the `search-engines' from the current buffer."
   (let* ((current-buffer (current-buffer))
          (buffer (or current-buffer
-                     (make-instance 'buffer))))
+                     (make-instance 'context-buffer))))
     (unwind-protect
          (search-engines buffer)
       (unless current-buffer
@@ -103,7 +103,7 @@ Example (Tor-proxied completion function for Wikipedia):
   "Search selected text using the queried search engine."
   (let* ((selection (%copy))
          (engine (first (prompt
-                         :prompt "Search engine:"
+                         :prompt "Search engine"
                          :sources (make-instance 'search-engine-source))))
          (target-buffer (if query-in-new-buffer-p
                             (make-buffer-focus)

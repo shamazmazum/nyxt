@@ -82,32 +82,37 @@ for matches."
   (let* ((preprocessor (if (uiop:emptyp input)
                            'prompter:delete-inexact-matches
                            'prompter:filter-exact-match))
-         (sources (list (make-instance 'variable-source
-                                       :actions (list (lambda-command describe-variable* (variables)
-                                                        (describe-variable :variable (first variables))))
-                                       :filter-preprocessor preprocessor
-                                       :universal universal)
-                        (make-instance 'function-source
-                                       :actions (list (lambda-command describe-function* (functions)
-                                                        (describe-function :function (first functions))))
-                                       :filter-preprocessor preprocessor
-                                       :universal universal)
-                        (make-instance 'command-source
-                                       :actions (list (lambda-command describe-command* (commands)
-                                                        (describe-command :command (name (first commands)))))
-                                       :filter-preprocessor preprocessor
-                                       :universal universal)
-                        (make-instance 'class-source
-                                       :actions (list (lambda-command describe-class* (classes)
-                                                        (describe-class :class (first classes))))
-                                       :filter-preprocessor preprocessor
-                                       :universal universal)
-                        (make-instance 'slot-source
-                                       :actions (list (lambda-command describe-slot** (slots)
-                                                        (describe-slot :class (class-sym (first slots))
-                                                                       :name (name (first slots)))))
-                                       :filter-preprocessor preprocessor
-                                       :universal universal))))
+         (sources
+           (list (make-instance
+                  'variable-source
+                  :return-actions (list (lambda-command describe-variable* (variables)
+                                          (describe-variable :variable (first variables))))
+                  :filter-preprocessor preprocessor
+                  :universal universal)
+                 (make-instance
+                  'function-source
+                  :return-actions (list (lambda-command describe-function* (functions)
+                                          (describe-function :function (first functions))))
+                  :filter-preprocessor preprocessor
+                  :universal universal)
+                 (make-instance
+                  'command-source
+                  :return-actions (list (lambda-command describe-command* (commands)
+                                          (describe-command :command (name (first commands)))))
+                  :filter-preprocessor preprocessor)
+                 (make-instance
+                  'class-source
+                  :return-actions (list (lambda-command describe-class* (classes)
+                                          (describe-class :class (first classes))))
+                  :filter-preprocessor preprocessor
+                  :universal universal)
+                 (make-instance
+                  'slot-source
+                  :return-actions (list (lambda-command describe-slot** (slots)
+                                          (describe-slot :class (class-sym (first slots))
+                                                         :name (name (first slots)))))
+                  :filter-preprocessor preprocessor
+                  :universal universal))))
     (let ((suggestion+action-pairs
             (and input
                  (loop with result = '()
@@ -116,14 +121,14 @@ for matches."
                                 while (< (length result) 2)
                                 when (string-equal input (prompter:attributes-default suggestion))
                                   do (push (list (prompter:value suggestion)
-                                                 (prompter:default-action source))
+                                                 (prompter:default-return-action source))
                                            result))
                        return result))))
       (match suggestion+action-pairs
         ((list (list suggestion action))
          (funcall action (list suggestion)))
         (_ (prompt
-            :prompt "Describe:"
+            :prompt "Describe"
             :input input
             :sources sources))))))
 
@@ -133,7 +138,7 @@ for matches."
 
 (define-internal-page-command-global describe-value
     (&key id)
-    (buffer "*Help-value*" 'nyxt/help-mode:help-mode)
+    (buffer "*Help-value*")
   "Inspect value under ID and show it in a help buffer."
   (sera:and-let* ((id id)
                   (value (inspected-value id)))
@@ -174,10 +179,9 @@ for matches."
 (define-internal-page-command-global describe-package
     (&key (package
            (prompt1
-             :prompt "Describe package:"
+             :prompt "Describe package"
              :sources (make-instance 'package-source))))
-    (buffer (str:concat "*Help-" (package-name package) "*")
-            'nyxt/help-mode:help-mode)
+    (buffer (str:concat "*Help-" (package-name package) "*"))
   "Inspect a package and show it in a help buffer."
   (let ((total-symbols (package-defined-symbols nil (list package)))
         (external-symbols (package-defined-symbols (list package)))
@@ -209,10 +213,9 @@ for matches."
      universal
      (variable
       (prompt1
-        :prompt "Describe variable:"
+        :prompt "Describe variable"
         :sources (make-instance 'variable-source :universal universal))))
-    (buffer (str:concat "*Help-" (symbol-name variable) "*")
-            'nyxt/help-mode:help-mode)
+    (buffer (str:concat "*Help-" (symbol-name variable) "*"))
   "Inspect a variable and show it in a help buffer."
   (let ((*print-case* :downcase))
     (spinneret:with-html-string
@@ -238,69 +241,112 @@ for matches."
   "Inspect a variable from any Nyxt-accessible package and show it in a help buffer."
   (describe-variable :universal t))
 
+(defun format-arglist (arglist)
+  (multiple-value-bind (required optional rest keywords aok? aux key?)
+      (alex:parse-ordinary-lambda-list arglist
+                                       :normalize-optional nil
+                                       :normalize-keyword nil)
+    (declare (ignore aux aok? key?))
+    (with-output-to-string (s)
+      (when required
+        (format s "~{~a~^ ~}~&" required))
+      (when optional
+        (format s "&optional ~{~s~^ ~}~&"
+                optional))
+      (when rest
+        (format s "&rest ~a~&" rest))
+      (when keywords
+        (format s "&key ~{~s~^ ~}~&" keywords)))))
+
+(defun format-function-type (function-type)
+  (match function-type
+    ((list 'function argument-types return-types)
+     (with-output-to-string (s)
+       (format s "Argument types: ~s~&" argument-types)
+       (format s "Return types: ~s~&" return-types)))))
+
 (define-internal-page-command-global describe-function
     (&key
      universal
      (function (prompt1
                  :prompt "Describe function"
                  :sources (make-instance 'function-source :universal universal))))
-    (buffer (str:concat "*Help-" (symbol-name function) "*")
-            'nyxt/help-mode:help-mode)
+    (buffer (str:concat "*Help-" (symbol-name function) "*"))
   "Inspect a function and show it in a help buffer.
 For generic functions, describe all the methods."
   (if function
       (let ((input function)
             (*print-case* :downcase))
-        (flet ((method-desc (method)
+        (flet ((fun-desc (input)
                  (spinneret:with-html-string
-                   (:h1 (format nil "~s" input) " "
-                        (:raw (format
-                               nil "(~{~a~^ ~})"
-                               (mapcar (lambda (class)
-                                         (cond
-                                           ((ignore-errors (mopu:subclassp class 'standard-object))
-                                            (spinneret:with-html-string
-                                              (:a :href (nyxt-url 'describe-class
-                                                                  :class (class-name class))
-                                                  (write-to-string (class-name class)))))
-                                           ((ignore-errors (eq t (class-name class)))
-                                            "t")
-                                           (t (nyxt::escaped-literal-print class))))
-                                       (mopu:method-specializers method)))))
-                   (:raw (resolve-backtick-quote-links (documentation method 't)
-                                                       (mopu:method-name method)))
+                   (:raw (resolve-backtick-quote-links (documentation input 'function) input))
                    (:h2 "Argument list")
-                   (:p (write-to-string (closer-mop:method-lambda-list method)))
-                   (alex:when-let* ((definition (swank:find-definition-for-thing method))
+                   (:p (:pre (let ((*package* (symbol-package input)))
+                               (format-arglist (mopu:function-arglist input)))))
+                   #+sbcl
+                   (unless (macro-function input)
+                     (:h2 "Type")
+                     (:p (:pre (format-function-type (sb-introspect:function-type input)))))
+                   (alex:when-let* ((definition (swank:find-definition-for-thing (symbol-function input)))
                                     (not-error-p (null (getf definition :error)))
                                     (file (rest (getf definition :location))))
                      (:h2 (format nil "Source ~a" file))
-                     (:pre (function-lambda-string method))))))
+                     (:pre (function-lambda-string (symbol-function input))))))
+               (method-desc (method)
+                 (let ((id (ensure-inspected-id method)))
+                   (spinneret:with-html-string
+                     (:details
+                      (:summary
+                          (:h3 :style "display: inline"
+                               (format nil "~s" input) " "
+                               (:raw (format
+                                      nil "(~{~a~^ ~})"
+                                      (mapcar (lambda (class)
+                                                (cond
+                                                  ((ignore-errors (mopu:subclassp class 'standard-object))
+                                                   (spinneret:with-html-string
+                                                     (:a :href (nyxt-url 'describe-class
+                                                                         :class (class-name class))
+                                                         (write-to-string (class-name class)))))
+                                                  ((ignore-errors (eq t (class-name class)))
+                                                   "t")
+                                                  (t (nyxt::escaped-literal-print class))))
+                                              (mopu:method-specializers method))))))
+                      (:button
+                       :class "button"
+                       :onclick (ps:ps (nyxt/ps:lisp-eval
+                                        `(progn
+                                           (remove-method (closer-mop:method-generic-function (inspected-value ,id))
+                                                          (inspected-value ,id))
+                                           (reload-current-buffer))))
+                       "Remove method")
+                      (:raw (resolve-backtick-quote-links (documentation method 't)
+                                                          (mopu:method-name method)))
+                      (:h4 "Argument list")
+                      (:p (:pre
+                           (let ((*package* (symbol-package input)))
+                             (format-arglist (closer-mop:method-lambda-list method)))))
+                      (alex:when-let* ((definition (swank:find-definition-for-thing method))
+                                       (not-error-p (null (getf definition :error)))
+                                       (file (rest (getf definition :location))))
+                        (:h2 (format nil "Source ~a" file))
+                        (:pre (function-lambda-string method))))))))
           (if (typep (symbol-function input) 'generic-function)
               (spinneret:with-html-string
                 (:style (style buffer))
                 (:h1 (format nil "~s" input) ; Use FORMAT to keep package prefix.
                      (when (macro-function input) " (macro)"))
-                (:raw (resolve-backtick-quote-links (documentation input 'function) input))
-                (:raw (apply #'str:concat (mapcar #'method-desc
-                                                  (mopu:generic-function-methods
-                                                   (symbol-function input))))))
+                (:raw (fun-desc input))
+                (:h2 "Methods")
+                (:raw (apply #'str:concat
+                             (mapcar #'method-desc
+                                     (mopu:generic-function-methods
+                                      (symbol-function input))))))
               (spinneret:with-html-string
                 (:style (style buffer))
                 (:h1 (format nil "~s" input) ; Use FORMAT to keep package prefix.
                      (when (macro-function input) " (macro)"))
-                (:raw (resolve-backtick-quote-links (documentation input 'function) input))
-                (:h2 "Argument list")
-                (:p (write-to-string (mopu:function-arglist input)))
-                #+sbcl
-                (unless (macro-function input)
-                  (:h2 "Type")
-                  (:p (format nil "~s" (sb-introspect:function-type input))))
-                (alex:when-let* ((definition (swank:find-definition-for-thing (symbol-function input)))
-                                 (not-error-p (null (getf definition :error)))
-                                 (file (rest (getf definition :location))))
-                  (:h2 (format nil "Source ~a" file))
-                  (:pre (function-lambda-string (symbol-function input))))))))
+                (:raw (fun-desc input))))))
       (prompt
        :prompt "Describe function"
        :sources (make-instance 'function-source))))
@@ -313,8 +359,7 @@ For generic functions, describe all the methods."
     (&key (command (name (prompt1
                            :prompt "Describe command"
                            :sources (make-instance 'command-source)))))
-    (buffer (str:concat "*Help-" (symbol-name command) "*")
-            'nyxt/help-mode:help-mode)
+    (buffer (str:concat "*Help-" (symbol-name command) "*"))
   "Inspect a command and show it in a help buffer.
 A command is a special kind of function that can be called with
 `execute-command' and can be bound to a key."
@@ -349,12 +394,12 @@ A command is a special kind of function that can be called with
       (:h2 (format nil "Source~a: " (if source-file
                                         (format nil " (~a)" source-file)
                                         "")))
-      (:pre (:code (function-lambda-string command))))))
+      (alex:when-let ((code (ignore-errors (function-lambda-string command))))
+        (:pre (:code code))))))
 
 (define-internal-page-command-global describe-slot
     (&key class name universal)
-    (buffer (str:concat "*Help-" (symbol-name name) "*")
-            'nyxt/help-mode:help-mode)
+    (buffer (str:concat "*Help-" (symbol-name name) "*"))
   "Inspect a slot and show it in a help buffer."
   (unless (and class name)
     (let ((slot (prompt1
@@ -412,15 +457,14 @@ A command is a special kind of function that can be called with
      (class (prompt1
               :prompt "Describe class"
               :sources (make-instance 'class-source :universal universal))))
-    (buffer (str:concat "*Help-" (symbol-name class) "*")
-            'nyxt/help-mode:help-mode)
+    (buffer (str:concat "*Help-" (symbol-name class) "*"))
   "Inspect a class and show it in a help buffer."
   (let* ((slots (class-public-slots class))
          (slot-descs (apply #'str:concat (mapcar (alex:rcurry #'describe-slot* class) slots)))
          (*print-case* :downcase))
     (spinneret:with-html-string
       (:style (style buffer))
-      (:h1 (symbol-name class))
+      (:h1 (symbol-name class) " (" (sera:class-name-of (find-class class)) ")")
       (:p (:raw (resolve-backtick-quote-links (documentation class 'type) class)))
       (when (mopu:direct-superclasses class)
         (:h2 "Direct superclasses:")
@@ -446,8 +490,7 @@ A command is a special kind of function that can be called with
 ;; Maybe have prompt-buffers have IDs so that we can identify those by IDs?
 ;; How do we actually identify prompt-buffers?
 (define-internal-page-command nyxt/prompt-buffer-mode::describe-prompt-buffer ()
-    (buffer (str:concat "*Help-" (prompter:prompt (current-prompt-buffer)) "-prompter*")
-            'nyxt/help-mode:help-mode)
+    (buffer (str:concat "*Help-" (prompter:prompt (current-prompt-buffer)) "-prompter*"))
   "Describe a prompt buffer instance."
   (let* ((prompt-buffer (current-prompt-buffer))
          (modes (modes prompt-buffer))
@@ -493,7 +536,7 @@ CLASS is a class symbol."
          (echo "Update slot ~s to ~s. You might need to restart to experience the change." slot input))))))
 
 (define-internal-page-command-global common-settings ()
-    (buffer "*Settings*" 'nyxt/help-mode:help-mode)
+    (buffer "*Settings*")
   "Configure a set of frequently used settings."
   (spinneret:with-html-string
     (:h1 "Common Settings")
@@ -585,7 +628,7 @@ CLASS is a class symbol."
              "Edit user files")))
 
 (define-internal-page-command-global describe-bindings ()
-    (buffer "*Help-bindings*" 'base-mode)
+    (buffer "*Help-bindings*")
   "Show a buffer with the list of all known bindings for the current buffer."
   (spinneret:with-html-string
     (:h1 "Bindings")
@@ -611,7 +654,7 @@ optimizing the use of space."
      (tr :font-size "7px")
      (div :display inline-block))
    (describe-bindings))
-  (print-buffer))
+  (nyxt/document-mode:print-buffer))
 
 (defun tls-help (buffer url)
   "This function is invoked upon TLS certificate errors to give users
@@ -766,7 +809,7 @@ the channel, wrapped alongside the condition and its restarts."))
 ;; FIXME: Not for interactive use?
 (define-internal-page-command open-debugger (&key id)
     ;; TODO: Introduce debug-mode with keys invoking restarts and toggling backtrace.
-    (buffer (format nil "*Debug-~d*" id) 'base-mode)
+    (buffer (format nil "*Debug-~d*" id))
   "Open the debugger with the condition indexed by ID."
   (with-slots (condition-itself restarts channel)
       (gethash id *debug-conditions*)
@@ -811,7 +854,7 @@ The version number is stored in the clipboard."
   ;; no *browser*.
   (let* ((current-buffer (current-buffer))
          (buffer (or (current-buffer)
-                     (make-instance 'buffer)))
+                     (make-instance 'input-buffer)))
          (keymaps (cons (override-map buffer)
                         (delete nil (mapcar #'keymap modes)))))
     (unwind-protect
@@ -821,21 +864,23 @@ The version number is stored in the clipboard."
         (buffer-delete buffer)))))
 
 (define-internal-page-command-global new ()
-    (buffer "*New buffer*" 'base-mode)
+    (buffer "*New buffer*")
   "Open up a buffer with useful links suitable for a `default-new-buffer-url'."
   (spinneret:with-html-string
     (:style (:raw (theme:themed-css (theme *browser*)
+                    (body
+                     :min-height "100vh")
                     (nav
                      :text-align "center"
                      :top 0)
                     (details
                      :display "inline"
-                     :padding "1em")
+                     :margin "1em")
                     (h1
                      :font-size "5em"
                      :margin "0.1em")
                     (main
-                     :min-height "70%"
+                     :padding "10%"
                      :text-align "center"
                      :display "flex"
                      :flex-direction "column"
@@ -909,7 +954,7 @@ The version number is stored in the clipboard."
 
 (sera:eval-always ; To satisfy `fboundp' of `manual' at compile-time (e.g. CCL).
   (define-internal-page-command-global manual ()
-      (buffer "*Manual*" 'nyxt/help-mode:help-mode)
+      (buffer "*Manual*")
     "Show the manual."
     (spinneret:with-html-string (:style (style buffer))
       (:style (cl-css:css '(("body"
@@ -917,7 +962,7 @@ The version number is stored in the clipboard."
       (:raw (manual-content)))))
 
 (define-internal-page-command-global tutorial ()
-    (buffer "*Tutorial*" 'nyxt/help-mode:help-mode)
+    (buffer "*Tutorial*")
   "Show the tutorial."
   (spinneret:with-html-string
     (:style (style buffer))
@@ -969,7 +1014,7 @@ the "
        (str:concat "Guix version: " (guix-information) +newline+)))))
 
 (define-internal-page-command-global show-system-information ()
-    (buffer "*System information*" 'base-mode)
+    (buffer "*System information*")
   "Show buffer with Lisp version, Lisp features, OS kernel, etc.
 System information is also saved into the clipboard."
   (let* ((*print-length* nil)
@@ -983,16 +1028,17 @@ System information is also saved into the clipboard."
       (echo "System information copied to clipboard."))))
 
 (define-internal-page-command-global dashboard ()
-    (buffer "*Dashboard*" 'base-mode)
+    (buffer "*Dashboard*")
   "Print a dashboard."
   (flet ((list-bookmarks (&key (separator " → "))
            (spinneret:with-html-string
-             (or (let ((bookmarks (nfiles:content (bookmarks-file (current-buffer)))))
-                   (loop for bookmark in bookmarks
-                         collect (:li (title bookmark) separator
-                                      (:a :href (render-url (url bookmark))
-                                          (render-url (url bookmark))))))
-                 (:p (format nil "No bookmarks in ~s." (nfiles:expand (bookmarks-file (current-buffer)))))))))
+             (let ((mode (make-instance 'nyxt/bookmark-mode:bookmark-mode)))
+               (or (let ((bookmarks (files:content (nyxt/bookmark-mode:bookmarks-file mode ))))
+                     (loop for bookmark in bookmarks
+                           collect (:li (title bookmark) separator
+                                        (:a :href (render-url (url bookmark))
+                                            (render-url (url bookmark))))))
+                   (:p (format nil "No bookmarks in ~s." (files:expand (nyxt/bookmark-mode:bookmarks-file mode)))))))))
     (let ((dashboard-style (theme:themed-css (theme *browser*)
                              (body
                               :color theme:text

@@ -119,7 +119,7 @@ failures."))
 (defclass webkit-web-context (webkit:webkit-web-context) ()
   (:metaclass gobject:gobject-class))
 
-(defmethod customize-instance :after ((web-context webkit-web-context) &key)
+(defmethod initialize-instance :after ((web-context webkit-web-context) &key)
   #+webkit2-sandboxing
   (webkit:webkit-web-context-set-sandbox-enabled web-context t)
   web-context)
@@ -257,50 +257,50 @@ the renderer thread, use `defmethod' instead."
 
 (define-class data-manager-file (nyxt-file)
   ((context-name (error "Context name required."))
-   (nfiles:name "web-context"))
+   (files:name "web-context"))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
-(defmethod nfiles:resolve :around ((profile nosave-profile) (file data-manager-file))
+(defmethod files:resolve :around ((profile nosave-profile) (file data-manager-file))
   "We shouldn't store any `data-manager' data for `nosave-profile'."
   #p"")
 
-(define-class data-manager-data-directory (nfiles:data-file data-manager-file)
+(define-class data-manager-data-directory (files:data-file data-manager-file)
   ()
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
-(defmethod nfiles:resolve ((profile nyxt-profile) (file data-manager-data-directory))
+(defmethod files:resolve ((profile nyxt-profile) (file data-manager-data-directory))
   (sera:path-join
    (call-next-method)
    (pathname (str:concat (context-name file) "-web-context/"))))
 
-(define-class data-manager-cache-directory (nfiles:cache-file data-manager-file)
+(define-class data-manager-cache-directory (files:cache-file data-manager-file)
   ()
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
-(defmethod nfiles:resolve ((profile nyxt-profile) (file data-manager-cache-directory))
+(defmethod files:resolve ((profile nyxt-profile) (file data-manager-cache-directory))
   (sera:path-join
    (call-next-method)
    (pathname (str:concat (context-name file) "-web-context/"))))
 
 (define-class gtk-extensions-directory (nyxt-file)
-  ((nfiles:name "gtk-extensions"))
+  ((files:name "gtk-extensions"))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name))
   (:documentation "Directory where to load the 'libnyxt' library.
 By default it is found in the source directory."))
 
-(defmethod nfiles:resolve ((profile nyxt-profile) (file gtk-extensions-directory))
+(defmethod files:resolve ((profile nyxt-profile) (file gtk-extensions-directory))
   (asdf:system-relative-pathname :nyxt "libraries/web-extensions/"))
 
-(define-class cookies-file (nfiles:data-file data-manager-file)
-  ((nfiles:name "cookies"))
+(define-class cookies-file (files:data-file data-manager-file)
+  ((files:name "cookies"))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
-(defmethod nfiles:resolve ((profile nyxt-profile) (file cookies-file))
+(defmethod files:resolve ((profile nyxt-profile) (file cookies-file))
   (sera:path-join
    (call-next-method)
    (pathname (str:concat (context-name file) "-cookies"))))
@@ -311,7 +311,7 @@ By default it is found in the source directory."))
     :documentation "See `gtk-buffer' slot of the same name."))
   (:accessor-name-transformer (class*:make-name-transformer name)))
 
-(defclass renderer-download (gtk-download)
+(defclass nyxt/download-mode:renderer-download (gtk-download)
   ()
   (:metaclass mixin-class))
 
@@ -323,29 +323,36 @@ By default it is found in the source directory."))
     (error 'nyxt-web-context-condition :context web-context
                                        :message "Tried to make an ephemeral web-view in a non-ephemeral context")))
 
-(defun make-web-view (&key buffer ephemeral-p)
-  "Return a web view instance.
+(defmethod make-web-view ((profile nyxt-profile) (buffer t))
+  "Return an ephemeral web view instance for basic buffers."
+  (declare (ignorable profile buffer))
+  (make-instance 'webkit-web-view-ephemeral
+                 :web-context (get-context *browser* +internal+
+                                           :ephemeral-p t)))
 
-If passed a context-name, a `nyxt:webkit-web-context' with that name is used for
-the `webkit:webkit-web-view'.  If :buffer is an internal-buffer or is
-not set, the browser's `+internal+' `nyxt:webkit-web-context' is
-used.  Otherwise (such as an external web buffer), the `+default+'
-webkit-web-context is used.
-
-If ephemeral-p is set, the buffer is a nosave-buffer, or the current
-`protife' is a `nosave-profile', then an ephemeral context is used, with
-the same naming rules as above."
-  (let ((internal-p (or (not buffer)
-                        (internal-buffer-p buffer)))
-        (ephemeral-p (or ephemeral-p
-                         (if buffer (ephemeral-p (profile buffer)))
-                         (typep buffer 'nosave-buffer))))
-    (make-instance (if ephemeral-p
-                       'webkit-web-view-ephemeral
-                       'webkit:webkit-web-view)
-                   :web-context (get-context *browser* (if internal-p +internal+ (context-name buffer))
+(defmethod make-web-view ((profile nyxt-profile) (buffer context-buffer))
+  "Return a regular web view instance for buffers with context."
+  (let* ((ephemeral-p (ephemeral-p profile))
+         (class (if ephemeral-p
+                    'webkit-web-view-ephemeral
+                    'webkit:webkit-web-view)))
+    (make-instance class
+                   :web-context (get-context *browser* (context-name buffer)
                                              :ephemeral-p ephemeral-p))))
 
+(defmethod make-web-view ((profile nyxt-profile) (buffer nosave-buffer))
+  "Return an ephemeral web view instance for nosave buffers."
+  (declare (ignorable profile))
+  (make-instance 'webkit-web-view-ephemeral
+                 :web-context (get-context *browser* (context-name buffer)
+                                           :ephemeral-p t)))
+
+(defmethod make-web-view ((profile nosave-profile) (buffer buffer))
+  "Return an ephemeral web view instance for nosave profiles."
+  (declare (ignorable profile))
+  (make-instance 'webkit-web-view-ephemeral
+                 :web-context (get-context *browser* (context-name buffer)
+                                           :ephemeral-p t)))
 (defun make-decide-policy-handler (buffer)
   (lambda (web-view response-policy-decision policy-decision-type-response)
     (declare (ignore web-view))
@@ -397,10 +404,11 @@ response.  The BODY is wrapped with `with-protect'."
   (%within-renderer-thread-async
    (lambda ()
      (with-slots (gtk-object) buffer
-       (setf gtk-object (make-web-view :buffer buffer))
-       (connect-signal-function
-        buffer "decide-policy"
-        (make-decide-policy-handler buffer))))))
+       (unless gtk-object
+         (setf gtk-object (make-web-view (profile buffer) buffer))
+         (connect-signal-function
+          buffer "decide-policy"
+          (make-decide-policy-handler buffer)))))))
 
 (defmethod customize-instance :after ((window gtk-window) &key)
   (%within-renderer-thread-async
@@ -413,87 +421,92 @@ response.  The BODY is wrapped with `with-protect'."
                   prompt-buffer-view
                   status-buffer status-container
                   message-container message-view
-                  id key-string-buffer) window
-       (setf id (get-unique-identifier *browser*))
-       (setf gtk-object (make-instance 'gtk:gtk-window
-                                       :type :toplevel
-                                       :default-width 1024
-                                       :default-height 768))
-       (setf root-box-layout (make-instance 'gtk:gtk-box
-                                            :orientation :vertical
-                                            :spacing 0))
-       (setf horizontal-box-layout (make-instance 'gtk:gtk-box
-                                                  :orientation :horizontal
-                                                  :spacing 0))
-       (setf panel-buffer-container-left (make-instance 'gtk:gtk-box
-                                                        :orientation :horizontal
-                                                        :spacing 0))
-       (setf panel-buffer-container-right (make-instance 'gtk:gtk-box
-                                                         :orientation :horizontal
-                                                         :spacing 0))
-       (setf main-buffer-container (make-instance 'gtk:gtk-box
-                                                  :orientation :vertical
-                                                  :spacing 0))
-       (setf prompt-buffer-container (make-instance 'gtk:gtk-box
-                                                    :orientation :vertical
-                                                    :spacing 0))
-       (setf message-container (make-instance 'gtk:gtk-box
+                  key-string-buffer) window
+       (unless gtk-object
+         (setf gtk-object (make-instance 'gtk:gtk-window
+                                         :type :toplevel
+                                         :default-width 1024
+                                         :default-height 768))
+         (setf root-box-layout (make-instance 'gtk:gtk-box
                                               :orientation :vertical
                                               :spacing 0))
-       (setf status-container (make-instance 'gtk:gtk-box
-                                             :orientation :vertical
-                                             :spacing 0))
-       (setf key-string-buffer (make-instance 'gtk:gtk-entry))
-       (setf active-buffer (make-instance 'dummy-buffer))
+         (setf horizontal-box-layout (make-instance 'gtk:gtk-box
+                                                    :orientation :horizontal
+                                                    :spacing 0))
+         (setf panel-buffer-container-left (make-instance 'gtk:gtk-box
+                                                          :orientation :horizontal
+                                                          :spacing 0))
+         (setf panel-buffer-container-right (make-instance 'gtk:gtk-box
+                                                           :orientation :horizontal
+                                                           :spacing 0))
+         (setf main-buffer-container (make-instance 'gtk:gtk-box
+                                                    :orientation :vertical
+                                                    :spacing 0))
+         (setf prompt-buffer-container (make-instance 'gtk:gtk-box
+                                                      :orientation :vertical
+                                                      :spacing 0))
+         (setf message-container (make-instance 'gtk:gtk-box
+                                                :orientation :vertical
+                                                :spacing 0))
+         (setf status-container (make-instance 'gtk:gtk-box
+                                               :orientation :vertical
+                                               :spacing 0))
+         (setf key-string-buffer (make-instance 'gtk:gtk-entry))
+         (setf active-buffer (make-instance 'buffer))
 
-       ;; Add the views to the box layout and to the window
-       (gtk:gtk-box-pack-start main-buffer-container (gtk-object active-buffer) :expand t :fill t)
-       (gtk:gtk-box-pack-start horizontal-box-layout panel-buffer-container-left :expand nil)
-       (gtk:gtk-box-pack-start horizontal-box-layout main-buffer-container :expand t :fill t)
-       (gtk:gtk-box-pack-start horizontal-box-layout panel-buffer-container-right :expand nil)
-       (gtk:gtk-box-pack-start root-box-layout horizontal-box-layout :expand t :fill t)
+         ;; Add the views to the box layout and to the window
+         (gtk:gtk-box-pack-start main-buffer-container (gtk-object active-buffer) :expand t :fill t)
+         (gtk:gtk-box-pack-start horizontal-box-layout panel-buffer-container-left :expand nil)
+         (gtk:gtk-box-pack-start horizontal-box-layout main-buffer-container :expand t :fill t)
+         (gtk:gtk-box-pack-start horizontal-box-layout panel-buffer-container-right :expand nil)
+         (gtk:gtk-box-pack-start root-box-layout horizontal-box-layout :expand t :fill t)
 
-       (setf message-view (make-web-view))
-       (gtk:gtk-box-pack-end root-box-layout message-container :expand nil)
-       (gtk:gtk-box-pack-start message-container message-view :expand t)
-       (setf (gtk:gtk-widget-size-request message-container)
-             (list -1 (message-buffer-height window)))
+         (setf message-view (make-web-view *global-profile* nil))
+         (gtk:gtk-box-pack-end root-box-layout message-container :expand nil)
+         (gtk:gtk-box-pack-start message-container message-view :expand t)
+         (setf (gtk:gtk-widget-size-request message-container)
+               (list -1 (message-buffer-height window)))
 
-       (setf status-buffer (make-instance 'status-buffer))
-       (gtk:gtk-box-pack-end root-box-layout status-container :expand nil)
-       (gtk:gtk-box-pack-start status-container (gtk-object status-buffer) :expand t)
-       (setf (gtk:gtk-widget-size-request status-container)
-             (list -1 (height status-buffer)))
+         (setf status-buffer (make-instance 'status-buffer))
+         (gtk:gtk-box-pack-end root-box-layout status-container :expand nil)
+         (gtk:gtk-box-pack-start status-container (gtk-object status-buffer) :expand t)
+         (setf (gtk:gtk-widget-size-request status-container)
+               (list -1 (height status-buffer)))
 
-       (setf prompt-buffer-view (make-web-view))
-       (gtk:gtk-box-pack-end root-box-layout prompt-buffer-container :expand nil)
-       (gtk:gtk-box-pack-start prompt-buffer-container prompt-buffer-view :expand t)
-       (setf (gtk:gtk-widget-size-request prompt-buffer-container)
-             (list -1 0))
+         (setf prompt-buffer-view (make-web-view *global-profile* nil))
+         (gtk:gtk-box-pack-end root-box-layout prompt-buffer-container :expand nil)
+         (gtk:gtk-box-pack-start prompt-buffer-container prompt-buffer-view :expand t)
+         (setf (gtk:gtk-widget-size-request prompt-buffer-container)
+               (list -1 0))
 
-       (gtk:gtk-container-add gtk-object root-box-layout)
-       (setf (slot-value *browser* 'last-active-window) window)
+         (gtk:gtk-container-add gtk-object root-box-layout)
+
+         (connect-signal window "key_press_event" nil (widget event)
+           (declare (ignore widget))
+           #+darwin
+           (push-modifier *browser* event)
+           (on-signal-key-press-event window event))
+         (connect-signal window "key_release_event" nil (widget event)
+           (declare (ignore widget))
+           #+darwin
+           (pop-modifier *browser* event)
+           (on-signal-key-release-event window event))
+         (connect-signal window "destroy" nil (widget)
+           (declare (ignore widget))
+           (on-signal-destroy window))
+         (connect-signal window "window-state-event" nil (widget event)
+           (declare (ignore widget))
+           (setf (fullscreen-p window)
+                 (find :fullscreen
+                       (gdk:gdk-event-window-state-new-window-state event)))
+           nil))
+
        (unless *headless-p*
-         (gtk:gtk-widget-show-all gtk-object))
-       (connect-signal window "key_press_event" nil (widget event)
-         (declare (ignore widget))
-         #+darwin
-         (push-modifier *browser* event)
-         (on-signal-key-press-event window event))
-       (connect-signal window "key_release_event" nil (widget event)
-         (declare (ignore widget))
-         #+darwin
-         (pop-modifier *browser* event)
-         (on-signal-key-release-event window event))
-       (connect-signal window "destroy" nil (widget)
-         (declare (ignore widget))
-         (on-signal-destroy window))
-       (connect-signal window "window-state-event" nil (widget event)
-         (declare (ignore widget))
-         (setf (fullscreen-p window)
-               (find :fullscreen
-                     (gdk:gdk-event-window-state-new-window-state event)))
-         nil)))))
+         (gtk:gtk-widget-show-all gtk-object))))))
+
+(defmethod update-instance-for-redefined-class :after ((window window) added deleted plist &key)
+  (declare (ignore added deleted plist))
+  (customize-instance window))
 
 (define-ffi-method on-signal-destroy ((window gtk-window))
   ;; remove buffer from window to avoid corruption of buffer
@@ -775,10 +788,10 @@ See `gtk-browser's `modifier-translator' slot."
                                 :website-data-manager
                                 (make-instance 'webkit-website-data-manager
                                                :base-data-directory (uiop:native-namestring
-                                                                     (nfiles:expand data-manager-data-directory))
+                                                                     (files:expand data-manager-data-directory))
                                                :base-cache-directory (uiop:native-namestring
-                                                                      (nfiles:expand data-manager-cache-directory)))))))
-         (gtk-extensions-path (nfiles:expand (make-instance 'gtk-extensions-directory)))
+                                                                      (files:expand data-manager-cache-directory)))))))
+         (gtk-extensions-path (files:expand (make-instance 'gtk-extensions-directory)))
          (cookie-manager (webkit:webkit-web-context-get-cookie-manager context)))
     (webkit:webkit-web-context-add-path-to-sandbox
      context (namestring (asdf:system-relative-pathname :nyxt "libraries/web-extensions/")) t)
@@ -833,12 +846,12 @@ See `gtk-browser's `modifier-translator' slot."
      nyxt::*schemes*)
     (unless (or ephemeral-p
                 (internal-context-p name))
-      (let ((cookies-path (nfiles:expand (make-instance 'cookies-file :context-name name))))
+      (let ((cookies-path (files:expand (make-instance 'cookies-file :context-name name))))
         (webkit:webkit-cookie-manager-set-persistent-storage
          cookie-manager
          (uiop:native-namestring cookies-path)
          :webkit-cookie-persistent-storage-text))
-      (set-cookie-policy cookie-manager (default-cookie-policy *browser*)))
+      (setf (ffi-buffer-cookie-policy cookie-manager) (default-cookie-policy *browser*)))
     context))
 
 (defun internal-context-p (name)
@@ -1028,18 +1041,17 @@ See `finalize-buffer'."
   "Show window in foreground."
   (unless *headless-p*
     (gtk:gtk-window-present (gtk-object window)))
-  (setf (slot-value *browser* 'last-active-window) window))
+  (call-next-method))
 
-(define-ffi-method ffi-window-set-title ((window gtk-window) title)
-  "Set the title for a window."
+(define-ffi-method ffi-window-title ((window gtk-window))
+  (gtk:gtk-window-title (gtk-object window)))
+(define-ffi-method (setf ffi-window-title) (title (window gtk-window))
   (setf (gtk:gtk-window-title (gtk-object window)) title))
 
 (define-ffi-method ffi-window-active ((browser gtk-browser))
-  "Return the window object for the current window."
-  (setf (slot-value browser 'last-active-window)
-        (or (find-if #'gtk:gtk-window-is-active (window-list) :key #'gtk-object)
-            (slot-value browser 'last-active-window)
-            (first (window-list)))))
+  "Return the focused window."
+  (or (find-if #'gtk:gtk-window-is-active (window-list) :key #'gtk-object)
+      (call-next-method)))
 
 (define-ffi-method ffi-window-set-buffer ((window gtk-window) (buffer gtk-buffer) &key (focus t))
   "Set BROWSER's WINDOW buffer to BUFFER."
@@ -1068,8 +1080,9 @@ See `finalize-buffer'."
   (unless *headless-p*
     (gtk:gtk-widget-show (gtk-object buffer))))
 
-(define-ffi-method ffi-window-set-panel-buffer-width ((window gtk-window) (buffer panel-buffer) width)
-  "Set the width of a panel buffer."
+(define-ffi-method ffi-window-panel-buffer-width ((window gtk-window) (buffer panel-buffer))
+  (nth-value 1 (gtk:gtk-widget-size-request (gtk-object buffer))))
+(define-ffi-method (setf ffi-window-panel-buffer-width) (width (window gtk-window) (buffer panel-buffer))
   (setf (gtk:gtk-widget-size-request (gtk-object buffer))
         (list width -1)))
 
@@ -1082,27 +1095,24 @@ See `finalize-buffer'."
          (setf (panel-buffers-right window) (remove buffer (panel-buffers-right window)))
          (gtk:gtk-container-remove (panel-buffer-container-right window) (gtk-object buffer)))))
 
-(define-ffi-method ffi-window-set-prompt-buffer-height ((window gtk-window) height)
+(define-ffi-method ffi-window-prompt-buffer-height ((window gtk-window))
+  (nth-value 1 (gtk:gtk-widget-size-request (prompt-buffer-container window))))
+(define-ffi-method (setf ffi-window-prompt-buffer-height) (height (window gtk-window))
   (setf (gtk:gtk-widget-size-request (prompt-buffer-container window))
         (list -1 height))
   (if (eql 0 height)
       (gtk:gtk-widget-grab-focus (gtk-object (active-buffer window)))
       (gtk:gtk-widget-grab-focus (prompt-buffer-view window))))
 
-(define-ffi-method ffi-window-get-prompt-buffer-height ((window gtk-window))
-  (nth-value 1 (gtk:gtk-widget-size-request (prompt-buffer-container window))))
-
-(define-ffi-method ffi-window-get-status-buffer-height ((window gtk-window))
+(define-ffi-method ffi-window-status-buffer-height ((window gtk-window))
   (nth-value 1 (gtk:gtk-widget-size-request (status-container window))))
-
-(define-ffi-method ffi-window-set-status-buffer-height ((window gtk-window) height)
+(define-ffi-method (setf ffi-window-status-buffer-height) (height (window gtk-window))
   (setf (gtk:gtk-widget-size-request (status-container window))
         (list -1 height)))
 
-(define-ffi-method ffi-window-get-message-buffer-height ((window gtk-window))
+(define-ffi-method ffi-window-message-buffer-height ((window gtk-window))
   (nth-value 1 (gtk:gtk-widget-size-request (message-container window))))
-
-(define-ffi-method ffi-window-set-message-buffer-height ((window gtk-window) height)
+(define-ffi-method (setf ffi-window-message-buffer-height) (height (window gtk-window))
   (setf (gtk:gtk-widget-size-request (message-container window))
         (list -1 height)))
 
@@ -1184,8 +1194,8 @@ See `finalize-buffer'."
                              :value input-color
                              :attributes (prompter:object-attributes input-color))
               suggestions))))
-   (prompter:follow-p t)
-   (prompter:follow-mode-functions
+   (prompter:selection-actions-enabled-p t)
+   (prompter:selection-actions
     (lambda (color)
       (pflet ((color-input-area
                (color)
@@ -1326,10 +1336,9 @@ See `finalize-buffer'."
 (define-ffi-method ffi-buffer-make ((buffer gtk-buffer))
   "Initialize BUFFER's GTK web view."
   (unless (gtk-object buffer) ; Buffer may already have a view, e.g. the prompt-buffer.
-    (setf (gtk-object buffer) (make-web-view :buffer buffer)))
-  (if (smooth-scrolling buffer)
-      (ffi-buffer-enable-smooth-scrolling buffer t)
-      (ffi-buffer-enable-smooth-scrolling buffer nil))
+    (setf (gtk-object buffer) (make-web-view (profile buffer) buffer)))
+  (when (document-buffer-p buffer)
+    (setf (ffi-buffer-smooth-scrolling-enabled-p buffer) (smooth-scrolling buffer)))
   (connect-signal-function buffer "decide-policy" (make-decide-policy-handler buffer))
   (connect-signal buffer "load-changed" t (web-view load-event)
     (declare (ignore web-view))
@@ -1453,18 +1462,19 @@ See `finalize-buffer'."
     (declare (ignore web-view))
     (toggle-fullscreen :skip-renderer-resize t)
     nil)
-  (connect-signal buffer "user-message-received" nil (view message)
-    (declare (ignorable view))
-    (g:g-object-ref (g:pointer message))
-    (run-thread
-      "Process user messsage"
-      (nyxt/web-extensions:process-user-message buffer message))
-    (sleep 0.01)
-    (run-thread
-      "Reply user message"
-      (nyxt/web-extensions:reply-user-message buffer message))
-    t)
-  (nyxt/web-extensions::tabs-on-created buffer)
+  (when (context-buffer-p buffer)
+    (connect-signal buffer "user-message-received" nil (view message)
+      (declare (ignorable view))
+      (g:g-object-ref (g:pointer message))
+      (run-thread
+          "Process user messsage"
+        (nyxt/web-extensions:process-user-message buffer message))
+      (sleep 0.01)
+      (run-thread
+          "Reply user message"
+        (nyxt/web-extensions:reply-user-message buffer message))
+      t)
+    (nyxt/web-extensions::tabs-on-created buffer))
   buffer)
 
 (define-ffi-method ffi-buffer-delete ((buffer gtk-buffer))
@@ -1587,9 +1597,8 @@ local anyways, and it's better to refresh it if a load was queried."
          (inject-time (if at-document-start-p
                           :webkit-user-script-inject-at-document-start
                           :webkit-user-script-inject-at-document-end))
-         (allow-list (if allow-list
-                         (list-of-string-to-foreign allow-list)
-                         '("http://*/*" "https://*/*")))
+         (allow-list (list-of-string-to-foreign
+                      (or allow-list '("http://*/*" "https://*/*"))))
          (block-list (list-of-string-to-foreign block-list))
          (script (if world-name
                      (webkit:webkit-user-script-new-for-world
@@ -1612,59 +1621,56 @@ local anyways, and it's better to refresh it if a load was queried."
       (webkit:webkit-user-content-manager-remove-script
        content-manager script))))
 
-(define-ffi-method ffi-buffer-enable-javascript ((buffer gtk-buffer) value)
-  (setf (webkit:webkit-settings-enable-javascript
-         (webkit:webkit-web-view-get-settings (gtk-object buffer)))
-        value))
+(defmacro define-ffi-settings-accessor (setting-name webkit-setting)
+  (let ((full-name (intern (format nil "FFI-BUFFER-~a" setting-name))))
+    (symbol-function full-name)
+    `(progn
+       (define-ffi-method ,full-name ((buffer gtk-buffer))
+         (,webkit-setting
+          (webkit:webkit-web-view-get-settings (gtk-object buffer))))
+       (define-ffi-method (setf ,full-name) (value (buffer gtk-buffer))
+         (setf (,webkit-setting
+                (webkit:webkit-web-view-get-settings (gtk-object buffer)))
+               value)))))
 
-(define-ffi-method ffi-buffer-enable-javascript-markup ((buffer gtk-buffer) value)
-  (setf (webkit:webkit-settings-enable-javascript-markup
-         (webkit:webkit-web-view-get-settings (gtk-object buffer)))
-        value))
-
-(define-ffi-method ffi-buffer-enable-smooth-scrolling ((buffer gtk-buffer) value)
-  (setf (webkit:webkit-settings-enable-smooth-scrolling
-         (webkit:webkit-web-view-get-settings (gtk-object buffer)))
-        value))
-
+(define-ffi-settings-accessor javascript-enabled-p webkit:webkit-settings-enable-javascript)
+(define-ffi-settings-accessor javascript-markup-enabled-p webkit:webkit-settings-enable-javascript-markup)
+(define-ffi-settings-accessor smooth-scrolling-enabled-p webkit:webkit-settings-enable-smooth-scrolling)
 #+webkit2-media
-(define-ffi-method ffi-buffer-enable-media ((buffer gtk-buffer) value)
-  (setf (webkit:webkit-settings-enable-media
-         (webkit:webkit-web-view-get-settings (gtk-object buffer)))
-        value))
-
-(define-ffi-method ffi-buffer-auto-load-image ((buffer gtk-buffer) value)
-  (setf (webkit:webkit-settings-auto-load-images
-         (webkit:webkit-web-view-get-settings (gtk-object buffer)))
-        value))
+(define-ffi-settings-accessor media-enabled-p webkit:webkit-settings-enable-media)
+(define-ffi-settings-accessor webgl-enabled-p webkit:webkit-settings-enable-webgl)
+(define-ffi-settings-accessor auto-load-image-enabled-p webkit:webkit-settings-auto-load-images)
 
 #+webkit2-mute
-(defmethod ffi-buffer-enable-sound ((buffer gtk-buffer) value)
+(defmethod ffi-buffer-sound-enabled-p ((buffer gtk-buffer))
+  (not (webkit:webkit-web-view-get-is-muted (gtk-object buffer))))
+#+webkit2-mute
+(defmethod (setf ffi-buffer-sound-enabled-p) (value (buffer gtk-buffer))
   (nyxt/web-extensions::tabs-on-updated
    buffer (alex:alist-hash-table `(("audible" . ,value))))
   (webkit:webkit-web-view-set-is-muted (gtk-object buffer) (not value)))
 
 (defmethod ffi-buffer-download ((buffer gtk-buffer) url)
   (let* ((webkit-download (webkit:webkit-web-view-download-uri (gtk-object buffer) url))
-         (download (make-instance 'download
+         (download (make-instance 'nyxt/download-mode:download
                                   :url url
                                   :gtk-object webkit-download)))
     (hooks:run-hook (before-download-hook *browser*) url)
-    (setf (cancel-function download)
+    (setf (nyxt/download-mode::cancel-function download)
           #'(lambda ()
-              (setf (status download) :canceled)
+              (setf (nyxt/download-mode:status download) :canceled)
               (webkit:webkit-download-cancel webkit-download)))
     (push download (downloads *browser*))
     (connect-signal download "received-data" nil (webkit-download data-length)
       (declare (ignore data-length))
-      (setf (bytes-downloaded download)
+      (setf (nyxt/download-mode:bytes-downloaded download)
             (webkit:webkit-download-get-received-data-length webkit-download))
-      (setf (completion-percentage download)
+      (setf (nyxt/download-mode:completion-percentage download)
             (* 100 (webkit:webkit-download-estimated-progress webkit-download))))
     (connect-signal download "decide-destination" nil (webkit-download suggested-file-name)
       (alex:when-let* ((download-dir (download-directory buffer))
-                       (download-directory (nfiles:expand download-dir))
-                       (native-download-directory (unless (nfiles:nil-pathname-p download-directory)
+                       (download-directory (files:expand download-dir))
+                       (native-download-directory (unless (files:nil-pathname-p download-directory)
                                                     (uiop:native-namestring download-directory)))
                        (path (str:concat native-download-directory suggested-file-name))
                        (unique-path (download-manager::ensure-unique-file path))
@@ -1675,83 +1681,77 @@ local anyways, and it's better to refresh it if a load was queried."
         (webkit:webkit-download-set-destination webkit-download file-path)))
     (connect-signal download "created-destination" nil (webkit-download destination)
       (declare (ignore destination))
-      (setf (destination-path download)
+      (setf (nyxt/download-mode:destination-path download)
             (uiop:ensure-pathname
              (quri:uri-path (quri:uri
                              (webkit:webkit-download-destination webkit-download)))))
       ;; TODO: We should not have to update the buffer, button actions should be
       ;; dynamic.  Bug in `user-interface'?
-      (reload-buffers (list (find-if
-                             (lambda (b)
-                               (and (string= (title b) "*Downloads*")
-                                    (find-submode 'nyxt:download-mode b)))
-                             (buffer-list)))))
+      (nyxt/download-mode:list-downloads))
     (connect-signal download "failed" nil (webkit-download error)
       (declare (ignore error))
-      (unless (eq (status download) :canceled)
-        (setf (status download) :failed))
+      (unless (eq (nyxt/download-mode:status download) :canceled)
+        (setf (nyxt/download-mode:status download) :failed))
       (echo "Download failed for ~s."
             (webkit:webkit-uri-request-uri
              (webkit:webkit-download-get-request webkit-download))))
     (connect-signal download "finished" nil (webkit-download)
       (declare (ignore webkit-download))
-      (unless (member (status download) '(:canceled :failed))
-        (setf (status download) :finished)
+      (unless (member (nyxt/download-mode:status download) '(:canceled :failed))
+        (setf (nyxt/download-mode:status download) :finished)
         ;; If download was too small, it may not have been updated.
-        (setf (completion-percentage download) 100)
+        (setf (nyxt/download-mode:completion-percentage download) 100)
         (hooks:run-hook (after-download-hook *browser*) download)))
     download))
 
-(define-ffi-method ffi-buffer-user-agent ((buffer gtk-buffer) &optional value)
+(define-ffi-method ffi-buffer-user-agent ((buffer gtk-buffer))
   (alex:when-let ((settings (webkit:webkit-web-view-get-settings (gtk-object buffer))))
-    (if value
-        (setf (webkit:webkit-settings-user-agent settings) value)
-        (webkit:webkit-settings-user-agent settings))))
+    (webkit:webkit-settings-user-agent settings)))
 
-(define-ffi-method ffi-buffer-webgl-enabled-p ((buffer gtk-buffer))
-  (webkit:webkit-settings-enable-webgl
-   (webkit:webkit-web-view-get-settings (gtk-object buffer))))
+(define-ffi-method (setf ffi-buffer-user-agent) (value (buffer gtk-buffer))
+  (alex:when-let ((settings (webkit:webkit-web-view-get-settings (gtk-object buffer))))
+    (setf (webkit:webkit-settings-user-agent settings) value)))
 
-(define-ffi-method ffi-buffer-enable-webgl ((buffer gtk-buffer) value)
-  (setf (webkit:webkit-settings-enable-webgl
-         (webkit:webkit-web-view-get-settings (gtk-object buffer)))
-        value))
-
-(define-ffi-method ffi-buffer-set-proxy ((buffer gtk-buffer)
-                                         &optional (proxy-url (quri:uri ""))
-                                         (ignore-hosts (list nil)))
-  "Redirect network connections of BUFFER to proxy server PROXY-URL.
-Hosts in IGNORE-HOSTS (a list of strings) ignore the proxy.
-For the user-level interface, see `proxy-mode'.
-
-Note: WebKit supports three proxy 'modes': default (the system proxy),
-custom (the specified proxy) and none."
-  (declare (type quri:uri proxy-url))
-  (setf (gtk-proxy-url buffer) proxy-url)
-  (setf (proxy-ignored-hosts buffer) ignore-hosts)
-  (let* ((context (webkit:webkit-web-view-web-context (gtk-object buffer)))
-         (settings (cffi:null-pointer))
-         (mode :webkit-network-proxy-mode-no-proxy)
-         (ignore-hosts (cffi:foreign-alloc :string
-                                           :initial-contents ignore-hosts
-                                           :null-terminated-p t)))
-    (unless (url-empty-p proxy-url)
-      (setf mode :webkit-network-proxy-mode-custom)
-      (setf settings
-            (webkit:webkit-network-proxy-settings-new
-             (render-url proxy-url)
-             ignore-hosts)))
-    (cffi:foreign-free ignore-hosts)
-    (webkit:webkit-web-context-set-network-proxy-settings
-     context mode settings)))
-
-(define-ffi-method ffi-buffer-get-proxy ((buffer gtk-buffer))
+(define-ffi-method ffi-buffer-proxy ((buffer gtk-buffer))
   "Return the proxy URL and list of ignored hosts (a list of strings) as second value."
   (the (values (or quri:uri null) list-of-strings)
        (values (gtk-proxy-url buffer)
                (proxy-ignored-hosts buffer))))
+(define-ffi-method (setf ffi-buffer-proxy) (proxy-specifier
+                                            (buffer gtk-buffer))
+  "Redirect network connections of BUFFER to proxy server PROXY-URL.
+Hosts in IGNORE-HOSTS (a list of strings) ignore the proxy.
+For the user-level interface, see `proxy-mode'.
 
-(define-ffi-method ffi-buffer-set-zoom-level ((buffer gtk-buffer) value)
+PROXY-SPECIFIER is either a PROXY-URL or a pair of (PROXY-URL IGNORE-HOSTS).
+
+Note: WebKit supports three proxy 'modes': default (the system proxy),
+custom (the specified proxy) and none."
+  (let ((proxy-url (first (alex:ensure-list proxy-specifier)))
+        (ignore-hosts (or (second (alex:ensure-list proxy-specifier))
+                          (list nil))))
+    (declare (type quri:uri proxy-url))
+    (setf (gtk-proxy-url buffer) proxy-url)
+    (setf (proxy-ignored-hosts buffer) ignore-hosts)
+    (let* ((context (webkit:webkit-web-view-web-context (gtk-object buffer)))
+           (settings (cffi:null-pointer))
+           (mode :webkit-network-proxy-mode-no-proxy)
+           (ignore-hosts (cffi:foreign-alloc :string
+                                             :initial-contents ignore-hosts
+                                             :null-terminated-p t)))
+      (unless (url-empty-p proxy-url)
+        (setf mode :webkit-network-proxy-mode-custom)
+        (setf settings
+              (webkit:webkit-network-proxy-settings-new
+               (render-url proxy-url)
+               ignore-hosts)))
+      (cffi:foreign-free ignore-hosts)
+      (webkit:webkit-web-context-set-network-proxy-settings
+       context mode settings))))
+
+(define-ffi-method ffi-buffer-zoom-level ((buffer gtk-buffer))
+  (webkit:webkit-web-view-zoom-level (gtk-object buffer)))
+(define-ffi-method (setf ffi-buffer-zoom-level) (value (buffer gtk-buffer))
   (when (and (floatp value) (>= value 0))
     (setf (webkit:webkit-web-view-zoom-level (gtk-object buffer)) value)))
 
@@ -1803,8 +1803,37 @@ custom (the specified proxy) and none."
 (defmethod ffi-display-url (text)
   (webkit:webkit-uri-for-display text))
 
-(-> set-cookie-policy (webkit:webkit-cookie-manager cookie-policy) *)
-(defun set-cookie-policy (cookie-manager cookie-policy)
+(defmethod ffi-buffer-cookie-policy ((buffer gtk-buffer))
+  (if (renderer-thread-p)
+      (progn
+        (log:warn "Querying cookie policy in WebKitGTK is only supported from a non-renderer thread.")
+        nil)
+      (let ((result-channel (make-channel 1)))
+        (run-thread "WebKitGTK cookie-policy"
+          (within-gtk-thread
+            (let* ((context (webkit:webkit-web-view-web-context (gtk-object buffer)))
+                   (cookie-manager (webkit:webkit-web-context-get-cookie-manager context)))
+              ;; TODO: Update upstream to export and fix `with-g-async-ready-callback'.
+              (webkit::with-g-async-ready-callback (callback
+                                                     (declare (ignorable webkit::user-data webkit::source-object))
+                                                     (calispel:! result-channel
+                                                                 (webkit:webkit-cookie-manager-get-accept-policy-finish
+                                                                  cookie-manager
+                                                                  webkit::result)))
+                (webkit:webkit-cookie-manager-get-accept-policy
+                 cookie-manager
+                 (cffi:null-pointer)
+                 callback
+                 (cffi:null-pointer))))))
+        (calispel:? result-channel))))
+(defmethod (setf ffi-buffer-cookie-policy) (cookie-policy (buffer gtk-buffer))
+  "VALUE is one of`:always', `:never' or `:no-third-party'."
+  (let* ((context (webkit:webkit-web-view-web-context (gtk-object buffer)))
+         (cookie-manager (webkit:webkit-web-context-get-cookie-manager context)))
+    (setf (ffi-buffer-cookie-policy cookie-manager) cookie-policy)
+    buffer))
+(defmethod (setf ffi-buffer-cookie-policy) (cookie-policy (cookie-manager webkit:webkit-cookie-manager))
+  "VALUE is one of`:always', `:never' or `:no-third-party'."
   (webkit:webkit-cookie-manager-set-accept-policy
    cookie-manager
    (match cookie-policy
@@ -1812,17 +1841,13 @@ custom (the specified proxy) and none."
      (:never :webkit-cookie-policy-accept-never)
      (:no-third-party :webkit-cookie-policy-accept-no-third-party))))
 
-(define-ffi-method ffi-buffer-cookie-policy ((buffer gtk-buffer) value)
-  "VALUE is one of`:always', `:never' or `:no-third-party'."
-  (let* ((context (webkit:webkit-web-view-web-context (gtk-object buffer)))
-         (cookie-manager (webkit:webkit-web-context-get-cookie-manager context)))
-    (set-cookie-policy cookie-manager value)
-    buffer))
-
-(defmethod ffi-set-preferred-languages ((buffer gtk-buffer)
-                                        language-list)
-  "Set the list of preferred languages in the HTTP header \"Accept-Language:\".
-LANGUAGE is a list of strings like '(\"en_US\" \"fr_FR\")."
+(defmethod ffi-preferred-languages ((buffer gtk-buffer))
+  "Not supported by WebKitGTK.
+Only the setf method is."
+  nil)
+(defmethod (setf ffi-preferred-languages) (language-list
+                                           (buffer gtk-buffer))
+  "LANGUAGE-LIST is a list of strings like '(\"en_US\" \"fr_FR\")."
   (let ((langs (cffi:foreign-alloc :string
                                    :initial-contents language-list
                                    :null-terminated-p t)))
@@ -1886,7 +1911,12 @@ As a second value, return the current buffer index starting from 0."
   (gtk:gtk-clipboard-wait-for-text
    (gtk:gtk-clipboard-get "CLIPBOARD")))
 
-(define-ffi-method ffi-set-tracking-prevention ((buffer gtk-buffer) value)
+(define-ffi-method ffi-tracking-prevention ((buffer gtk-buffer))
+  #+webkit2-tracking
+  (webkit:webkit-website-data-manager-get-itp-enabled
+   (webkit:webkit-web-context-website-data-manager
+    (webkit:webkit-web-view-web-context (gtk-object buffer)))))
+(define-ffi-method (setf ffi-tracking-prevention) (value (buffer gtk-buffer))
   #+webkit2-tracking
   (webkit:webkit-website-data-manager-set-itp-enabled
    (webkit:webkit-web-context-website-data-manager

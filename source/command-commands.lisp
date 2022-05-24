@@ -49,7 +49,7 @@
                            (sort-by-time
                             (list-commands
                              :global-p (global-p source)
-                             :mode-symbols (mapcar #'sera:class-name-of (modes (buffer source))))))))
+                             :mode-symbols (mapcar #'sera:class-name-of (sera:filter #'enabled-p (modes (buffer source)))))))))
   (:export-class-name-p t)
   (:accessor-name-transformer (class*:make-name-transformer name))
   (:documentation "Prompter source to execute commands.
@@ -149,12 +149,12 @@ User input is evaluated Lisp."
                        (list (prompt-argument name type default))))
                     params)))
             (setf (last-access command) (local-time:now))
-            (apply #'run-async
-                   command
-                   (alex:mappend #'parse-args
-                                 (list (pairlis required-arguments required-types)
-                                       (pairlis optional-arguments optional-types)
-                                       (pairlis keyword-arguments (mapcar #'second keyword-types))))))))))))
+            (run-async
+             command
+             (alex:mappend #'parse-args
+                           (list (pairlis required-arguments required-types)
+                                 (pairlis optional-arguments optional-types)
+                                 (pairlis keyword-arguments (mapcar #'second keyword-types))))))))))))
 
 (defun get-hooks ()
   (flet ((list-hooks (object)

@@ -20,34 +20,15 @@
     ;; FIXME: SBCL `slot-value' returns a list, while CCL returns the boolean.  Why?
     (if (alex:ensure-car (slot-value class 'toggler-command-p))
         (sera:lret ((command (make-command
-                                 name
-                                 `(lambda (&rest args
-                                           &key
-                                             ;; TODO: Shall we have a function that returns the focused
-                                             ;; buffer?  `focused-buffer'?  `current-buffer*'?  Rename
-                                             ;; `current-buffer' to `current-view-buffer' and add
-                                             ;; `current-buffer' for this task?
-                                             (buffer (or (current-prompt-buffer) (current-buffer)))
-                                             (activate t explicit?)
-                                           &allow-other-keys)
-                                    ,(format nil "Toggle ~a." name)
-                                    ;; On CCL `find-submode' would trigger a
-                                    ;; warning because the class is not findable
-                                    ;; when toggler is defined.
-                                    (let ((existing-instance (find ',name (modes buffer) :key #'sera:class-name-of)))
-                                      (unless explicit?
-                                        (setf activate (or (not existing-instance)
-                                                           (not (enabled-p existing-instance)))))
-                                      (if activate
-                                          ;; TODO: Shall we pass args to `make-instance' or `enable'?
-                                          ;; Have 2 args parameters?
-                                          (enable (or existing-instance
-                                                      (apply #'make-instance ',name
-                                                             :buffer buffer
-                                                             args)))
-                                          (when existing-instance
-                                            (disable existing-instance)))))
-                               :global)))
+                              name
+                              `(lambda (&rest args
+                                        &key (buffer (or (current-prompt-buffer) (current-buffer)))
+                                          (activate t explicit?)
+                                        &allow-other-keys)
+                                 ,(format nil "Toggle ~a." name)
+                                 (declare (ignorable buffer activate explicit?))
+                                 (apply #'toggle-mode ',name args))
+                              :global)))
           (setf (fdefinition name) command))
         (delete-command name))))
 
@@ -254,18 +235,19 @@ PACKAGES should be a list of package designators."
   "Return the first submode instance of MODE-SYMBOL in BUFFER.
 As a second value, return all matching submode instances.
 Return nil if mode is not found."
-  (alex:if-let ((class (mode-class mode-symbol)))
-    (let ((results (sera:filter
-                    (alex:rcurry #'closer-mop:subclassp class)
-                    (modes buffer)
-                    :key #'class-of)))
-      (when (< 1 (length results))
-        (log:warn "Found multiple matching modes: ~a" results))
-      (values (first results)
-              results))
-    ;; CCL catches the error at compile time but not all implementations do,
-    ;; hence the redundant error report here.
-    (error "Mode ~a does not exist" mode-symbol)))
+  (when (modable-buffer-p buffer)
+    (alex:if-let ((class (mode-class mode-symbol)))
+      (let ((results (sera:filter
+                      (alex:rcurry #'closer-mop:subclassp class)
+                      (modes buffer)
+                      :key #'class-of)))
+        (when (< 1 (length results))
+          (log:warn "Found multiple matching modes: ~a" results))
+        (values (first results)
+                results))
+      ;; CCL catches the error at compile time but not all implementations do,
+      ;; hence the redundant error report here.
+      (error "Mode ~a does not exist" mode-symbol))))
 
 (-> current-mode ((or keyword string) &optional buffer) (maybe mode))
 (export-always 'current-mode)
@@ -275,10 +257,7 @@ Return NIL if none.
 The \"-mode\" suffix is automatically appended to MODE-KEYWORD if missing.
 This is convenience function for interactive use.
 For production code, see `find-submode' instead."
-  (let* ((mode-designator (string mode-designator))
-         (mode-designator (if (str:ends-with-p "-MODE" mode-designator)
-                              mode-designator
-                              (str:concat mode-designator "-MODE"))))
+  (let ((mode-designator (sera:ensure-suffix (string mode-designator) "-MODE")))
     (find-submode (resolve-symbol mode-designator :mode)
                   buffer)))
 
@@ -343,7 +322,7 @@ ARGS are passed to the mode `enable' method."
                        :prompt "Enable mode(s) for buffer(s)"
                        :sources (make-instance 'buffer-source
                                                :multi-selection-p t
-                                               :actions '()))))
+                                               :return-actions '()))))
          (modes (if modes
                     (uiop:ensure-list modes)
                     (prompt
@@ -352,7 +331,7 @@ ARGS are passed to the mode `enable' method."
                                              :buffers buffers)))))
     (mapcar (lambda (buffer)
               (mapcar (lambda (mode-sym)
-                        (apply #'enable (or (find-submode mode-sym buffer)
+                        (apply #'enable (or (find mode-sym (modes buffer) :key #'name)
                                             (make-instance mode-sym :buffer buffer))
                                args))
                       modes))
@@ -369,7 +348,7 @@ BUFFERS and MODES are automatically coerced into a list."
                        :prompt "Enable mode(s) for buffer(s)"
                        :sources (make-instance 'buffer-source
                                                :multi-selection-p t
-                                               :actions '()))))
+                                               :return-actions '()))))
          (modes (if modes
                     (uiop:ensure-list modes)
                     (prompt
@@ -377,23 +356,49 @@ BUFFERS and MODES are automatically coerced into a list."
                      :sources (make-instance 'inactive-mode-source
                                              :buffers buffers)))))
     (mapcar (lambda (buffer)
-              (mapcar #'disable (delete nil (mapcar (lambda (mode) (find-submode mode buffer))
+              (mapcar #'disable (delete nil (mapcar (lambda (mode) (find mode (modes buffer) :key #'name))
                                                     (uiop:ensure-list modes)))))
             buffers)))
 
+;; TODO: Factor `toggle-mode' and `toggle-modes' somehow?
+;; TODO: Shall we have a function that returns the focused buffer?
+;; `focused-buffer'?  `current-buffer*'?  Rename `current-buffer' to
+;; `current-view-buffer' and add `current-buffer' for this task?
+(defun toggle-mode (mode-sym
+                    &rest args
+                    &key (buffer (or (current-prompt-buffer) (current-buffer)))
+                      (activate t explicit?)
+                    &allow-other-keys)
+  "Enable MODE-SYM if not already enabled, disable it otherwise."
+  (let ((existing-instance (find mode-sym (modes buffer) :key #'sera:class-name-of)))
+    (unless explicit?
+      (setf activate (or (not existing-instance)
+                         (not (enabled-p existing-instance)))))
+    (if activate
+        ;; TODO: Shall we pass args to `make-instance' or `enable'?
+        ;; Have 2 args parameters?
+        (enable (or existing-instance
+                    (apply #'make-instance mode-sym
+                           :buffer buffer
+                           args)))
+        (when existing-instance
+          (disable existing-instance)))))
+
 (define-command toggle-modes (&key (buffer (current-buffer)))
   "Enable marked modes, disable unmarked modes for BUFFER."
-  (let* ((modes-to-enable (prompt
-                           :prompt "Mark modes to enable, unmark to disable"
-                           :sources (make-instance 'mode-source
-                                                   :actions (list 'identity
-                                                                  (lambda-command force-disable-auto-mode (modes)
-                                                                                "Return selection but force disabling auto-mode.
+  (let* ((modes-to-enable
+           (prompt
+            :prompt "Mark modes to enable, unmark to disable"
+            :sources (make-instance
+                      'mode-source
+                      :return-actions (list 'identity
+                                            (lambda-command force-disable-auto-mode (modes)
+                                              "Return selection but force disabling auto-mode.
 This is convenient when you use auto-mode by default and you want to toggle a
 mode permanently for this buffer."
-                                                                                (delete (read-from-string "nyxt/auto-mode:auto-mode" )
-                                                                                        modes)))
-                                                   :marks (mapcar #'sera:class-name-of (modes buffer)))))
+                                              (delete (read-from-string "nyxt/auto-mode:auto-mode" )
+                                                      modes)))
+                      :marks (mapcar #'sera:class-name-of (modes buffer)))))
          (modes-to-disable (set-difference (all-mode-symbols) modes-to-enable
                                            :test #'string=)))
     (disable-modes (uiop:ensure-list modes-to-disable) buffer)
@@ -441,6 +446,14 @@ If there is no corresponding keymap, return nil."
 
 (defmethod on-signal-load-failed ((mode mode) url)
   url)
+
+(defmethod url-sources ((mode mode) return-actions)
+  (declare (ignore return-actions))
+  nil)
+
+(defmethod url-sources :around ((mode mode) return-actions)
+  (declare (ignore return-actions))
+  (alex:ensure-list (call-next-method)))
 
 (defmethod s-serialization:serializable-slots ((object mode))
   "Discard keymaps which can be quite verbose."

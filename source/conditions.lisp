@@ -3,9 +3,7 @@
 
 (in-package :nyxt)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (export '(nyxt-condition)))
-
+(export-always 'nyxt-condition)
 (define-condition nyxt-condition (error)
   ((message :initarg :message :accessor nyxt-condition-message))
   (:report (lambda (c stream)
@@ -17,3 +15,10 @@
 
 (define-condition nyxt-prompt-buffer-canceled (error)
   ())
+(define-condition nyxt-prompt-buffer-non-interactively (nyxt-prompt-buffer-canceled)
+  ()
+  (:report (lambda (c stream)
+             (declare (ignore c))
+             (write-string "Tried to invoke the prompt buffer when non-interactive."
+                           stream)))
+  (:documentation "See `*interactive-p*'."))

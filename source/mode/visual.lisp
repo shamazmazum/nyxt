@@ -4,14 +4,18 @@
 (uiop:define-package :nyxt/visual-mode
   (:use :common-lisp :nyxt)
   (:import-from #:keymap #:define-key #:define-scheme)
-  (:import-from #:nyxt/web-mode #:query-hints #:get-nyxt-id)
   (:documentation "Visual mode."))
 (in-package :nyxt/visual-mode)
 (use-nyxt-package-nicknames)
 
-(define-mode visual-mode ()
+(define-mode visual-mode (nyxt/hint-mode:hint-mode)
   "Visual mode. For documentation on commands and keybindings, see the manual."
   ((rememberable-p nil)
+   (nyxt/hint-mode:hints-selector
+    "a, b, p, del, h1, h2, h3, h4, h5, h6, i, option,
+strong, sub, sup, listing, xmp, plaintext, basefont, big, blink, center, font,
+marquee, multicol, nobr, s, spacer, strike, tt, u, wbr, code, cite, pre"
+    :type string)
    (keymap-scheme
     (define-scheme "visual"
       scheme:cua
@@ -79,7 +83,7 @@
 (defmethod enable ((mode visual-mode) &key)
   (make-page-editable)
   (block-page-keypresses)
-  (select-paragraph)
+  (select-paragraph mode)
   ;; imitating visual mode in vim
   (when (equal (keymap-scheme-name (buffer mode)) scheme:vi-normal)
     (setf (mark-set mode) t)))
@@ -132,13 +136,11 @@
 (define-parenscript make-page-uneditable ()
   (setf (ps:@ document body content-editable) "false"))
 
-(define-command select-paragraph ()
+(define-command select-paragraph (&optional (mode (find-submode 'visual-mode)))
   "Add hints to text elements on the page and query them."
-  (query-hints "Set caret on element"
-               (lambda (results) (%follow-hint (first results)))
-               :selector "a, b, p, del, h1, h2, h3, h4, h5, h6, i, option,
-strong, sub, sup, listing, xmp, plaintext, basefont, big, blink, center, font,
-marquee, multicol, nobr, s, spacer, strike, tt, u, wbr, code, cite, pre"))
+  (nyxt/hint-mode:query-hints "Set caret on element"
+                              (lambda (results) (%follow-hint (first results)))
+                              :selector (nyxt/hint-mode:hints-selector mode)))
 
 (define-parenscript collapsed-p ()
   "Return T if mark's start and end are the same value, nil otherwise."

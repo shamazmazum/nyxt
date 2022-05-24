@@ -22,7 +22,7 @@
 (define-mode file-manager-mode (nyxt/prompt-buffer-mode:prompt-buffer-mode)
   "Prompt buffer mode for file choosing."
   ((keymap-scheme
-    (define-scheme "element-hint"
+    (define-scheme "hint"
       scheme:cua
       (list
        "C-backspace" 'directory-up)
@@ -109,10 +109,10 @@ When the user is unspecified, take the current one."
 (defmethod prompter:object-attributes ((path pathname))
   `(("Path" ,(uiop:native-namestring path))
     ("Name" ,(if (uiop:directory-pathname-p path)
-                 (enough-namestring path (nfiles:parent path))
+                 (enough-namestring path (files:parent path))
                  (pathname-name path)))
-    ("Extension" ,(or (nfiles:pathname-type* path) ""))
-    ("Directory" ,(uiop:native-namestring (nfiles:parent path)))))
+    ("Extension" ,(or (files:pathname-type* path) ""))
+    ("Directory" ,(uiop:native-namestring (files:parent path)))))
 
 (defun match-extension (ext)
   (lambda (pathname)
@@ -201,7 +201,7 @@ See `supported-media-types' of `file-mode'."
         (find extension extensions :test #'string-equal))))
 
 (defmethod initialize-instance :after ((source open-file-source) &key)
-  (setf (slot-value source 'prompter:actions)
+  (setf (slot-value source 'prompter:return-actions)
         (append
          (list (lambda-command open-file* (files)
                  "Open files with `open-file-function' (a sensible default)."
@@ -221,7 +221,7 @@ See `supported-media-types' of `file-mode'."
                (lambda-command rename-file* (files)
                  "Rename the first chosen file."
                  (let* ((file (first files))
-                        (name (nfiles:basename file)))
+                        (name (files:basename file)))
                    (rename-file file (prompt1
                                        :prompt (format nil "New name for ~a" name)
                                        :sources (list (make-instance 'prompter:raw-source))
@@ -233,7 +233,7 @@ See `supported-media-types' of `file-mode'."
                                    :prompt "The program to open the selected files with"
                                    :sources (list (make-instance 'program-source)))))
                    (uiop:launch-program (cons (uiop:native-namestring program) (mapcar #'uiop:native-namestring files))))))
-         (slot-value source 'prompter:actions))))
+         (slot-value source 'prompter:return-actions))))
 
 (export-always 'default-open-file-function)
 (defun default-open-file-function (filename &key supported-p new-buffer-p)
@@ -291,3 +291,7 @@ it. Every type in `supported-media-types' will be opened directly in Nyxt."
    :input (uiop:native-namestring default-directory)
    :prompt "Open file"
    :sources (list (make-instance 'open-file-source))))
+
+(define-command-global download-open-file ()
+  "Open file in Nyxt or externally."
+  (open-file :default-directory (files:expand (download-directory (current-buffer)))))

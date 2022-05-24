@@ -115,19 +115,23 @@ Bookmarks can be persisted to disk, see the `bookmarks-file' mode slot."
                (dolist (bookmark bookmarks)
                  (let ((uri-host (quri:uri-host (url bookmark)))
                        (url-href (render-url (url bookmark))))
-                   (:dl
-                    (:dt (:button :onclick (ps:ps (delbkm (ps:lisp url-href))) "✕")
-                         (serapeum:ellipsize (title bookmark) 80))
-                    (:dd (:a :href url-href uri-host))
-                    (when (tags bookmark)
-                      (:dd (format nil " (~{~a~^, ~})" (tags bookmark)))))
-                   (:hr)))))
+                   (:div :class "bookmark-entry"
+                         (:dl
+                          (:dt (:button :onclick (ps:ps (delbkm (ps:lisp url-href))) "✕")
+                               (serapeum:ellipsize (title bookmark) 80))
+                          (:dd (:a :href url-href uri-host))
+                          (when (tags bookmark)
+                            (:dd (format nil " (~{~a~^, ~})" (tags bookmark)))))
+                         (:hr))))))
             bookmarks)))
       (:nscript
-       ;; Not exactly pretty, but saves a lot of space.
-       (ps:ps (defun delbkm (url)
-                (fetch (+ "lisp://" (escape (+ "(nyxt:delete-bookmark \"" url "\")/")))
-                       (ps:create :mode "no-cors"))))))))
+        ;; Not exactly pretty, but saves a lot of space.
+        (ps:ps (defun delbkm (url)
+                 (let ((section (ps:chain document active-element
+                                          (closest ".bookmark-entry"))))
+                   (ps:chain section parent-node (remove-child section)))
+                 (fetch (+ "lisp://" (escape (+ "(nyxt/bookmark-mode:delete-bookmark \"" url "\")/")))
+                        (ps:create :mode "no-cors"))))))))
 
 (define-class bookmarks-file (files:data-file nyxt-lisp-file)
   ((files:base-path #p"bookmarks")

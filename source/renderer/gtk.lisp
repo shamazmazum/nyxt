@@ -338,7 +338,7 @@ the same naming rules as above."
   (let ((internal-p (or (not buffer)
                         (internal-buffer-p buffer)))
         (ephemeral-p (or ephemeral-p
-                         (when buffer (typep (profile buffer) 'nosave-profile))
+                         (if buffer (ephemeral-p (profile buffer)))
                          (typep buffer 'nosave-buffer))))
     (make-instance (if ephemeral-p
                        'webkit-web-view-ephemeral

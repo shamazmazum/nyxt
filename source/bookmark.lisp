@@ -211,14 +211,15 @@ URLS is either a list or a single element."
   (if urls-or-bookmark-entries
       (nfiles:with-file-content (bookmarks (bookmarks-file (current-buffer)))
         (setf bookmarks
-              (set-difference
-               bookmarks
-               (mapcar (lambda (url)
-                         (if (bookmark-entry-p url)
-                             url
-                             (make-instance 'bookmark-entry :url (quri:uri url))))
-                       (uiop:ensure-list urls-or-bookmark-entries))
-               :test #'equals)))
+              (reduce
+               (lambda (acc url)
+                 (remove
+                  (if (bookmark-entry-p url)
+                      url
+                      (make-instance 'bookmark-entry :url (quri:uri url)))
+                  acc :test #'equals))
+               (uiop:ensure-list urls-or-bookmark-entries)
+               :initial-value bookmarks)))
       (let ((entries (prompt
                       :prompt "Delete bookmark(s)"
                       :sources (make-instance 'bookmark-source

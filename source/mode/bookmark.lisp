@@ -64,16 +64,20 @@
                (dolist (bookmark bookmarks)
                  (let ((uri-host (quri:uri-host (url bookmark)))
                        (url-href (render-url (url bookmark))))
-                   (:dl
-                    (:dt (:button :onclick (ps:ps (delbkm (ps:lisp url-href))) "✕")
-                         (serapeum:ellipsize (title bookmark) 80))
-                    (:dd (:a :href url-href uri-host))
-                    (when (tags bookmark)
-                      (:dd (format nil " (~{~a~^, ~})" (tags bookmark)))))
-                   (:hr)))))
+                   (:div :class "bookmark-entry"
+                         (:dl
+                          (:dt (:button :onclick (ps:ps (delbkm (ps:lisp url-href))) "✕")
+                               (serapeum:ellipsize (title bookmark) 80))
+                          (:dd (:a :href url-href uri-host))
+                          (when (tags bookmark)
+                            (:dd (format nil " (~{~a~^, ~})" (tags bookmark)))))
+                         (:hr))))))
             bookmarks)))
       (:nscript
        ;; Not exactly pretty, but saves a lot of space.
        (ps:ps (defun delbkm (url)
+                (let ((section (ps:chain document active-element
+                                         (closest ".bookmark-entry"))))
+                  (ps:chain section parent-node (remove-child section)))
                 (fetch (+ "lisp://" (escape (+ "(nyxt:delete-bookmark \"" url "\")/")))
                        (ps:create :mode "no-cors"))))))))

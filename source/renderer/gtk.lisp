@@ -342,32 +342,13 @@ By default it is found in the source directory."))
     (error 'web-context-error :context web-context
                                        :message "Tried to make an ephemeral web-view in a non-ephemeral context")))
 
-(defmethod make-web-view ((profile nyxt-profile) (buffer t))
+(defun make-web-view (profile buffer)
   "Return an ephemeral web view instance for basic buffers."
-  (declare (ignorable profile buffer))
+  (declare (ignore profile))
   (make-instance 'webkit-web-view-ephemeral
-                 :web-context (get-context *browser* +internal+
-                                           :ephemeral-p t)))
-
-(defmethod make-web-view ((profile nyxt-profile) (buffer context-buffer))
-  "Return a regular web view instance for buffers with context."
-  (declare (ignorable profile))
-  (make-instance 'webkit:webkit-web-view
-                 :web-context (get-context *browser* (context-name buffer)
-                                           :ephemeral-p nil)))
-
-(defmethod make-web-view ((profile nyxt-profile) (buffer nosave-buffer))
-  "Return an ephemeral web view instance for nosave buffers."
-  (declare (ignorable profile))
-  (make-instance 'webkit-web-view-ephemeral
-                 :web-context (get-context *browser* (context-name buffer)
-                                           :ephemeral-p t)))
-
-(defmethod make-web-view ((profile nosave-profile) (buffer buffer))
-  "Return an ephemeral web view instance for nosave profiles."
-  (declare (ignorable profile))
-  (make-instance 'webkit-web-view-ephemeral
-                 :web-context (get-context *browser* (context-name buffer)
+                 :web-context (get-context *browser*
+                                           (if (typep buffer 'buffer)
+                                               (context-name buffer) +internal+)
                                            :ephemeral-p t)))
 
 (define-class gtk-request-data ()

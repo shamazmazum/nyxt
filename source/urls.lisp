@@ -347,7 +347,7 @@ Example:
   (mappend (lambda (pair)
              (let ((key (intern (str:upcase (first pair)) :keyword))
                    (value (if (str:starts-with-p +escape+ (rest pair))
-                              (read-from-string (subseq (rest pair) 1))
+                              (uiop:safe-read-from-string (subseq (rest pair) 1) :package *package*)
                               (rest pair))))
                ;; Symbols are safe (are they?)
                (if (or (symbolp value)
@@ -371,8 +371,8 @@ guarantee of the same result."
          ;; FIXME: While we ourselves guarantee the correctness of nyxt:// URLs,
          ;; it would be nice to ensure it processes even the malformed URLs.
          (params (quri:uri-query-params url))
-         (internal-page-name (let ((*package* (find-package :nyxt)))
-                               (read-from-string (str:upcase symbol)))))
+         (internal-page-name (uiop:safe-read-from-string (str:upcase symbol)
+                                                         :package *package*)))
     (if (gethash internal-page-name *nyxt-url-commands*)
         (values internal-page-name (query-params->arglist params))
         (error "There's no nyxt:~a internal-page defined" symbol))))

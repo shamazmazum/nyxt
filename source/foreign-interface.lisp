@@ -271,6 +271,14 @@ Setf-able, where the languages value is a list of strings like '(\"en_US\"
   (:documentation "Return if Intelligent Tracking Prevention (ITP) is enabled.
 Setf-able."))
 
+(define-ffi-generic clipboard-text (browser)
+  (:setter-p t)
+  (:method ((browser t))
+    (trivial-clipboard:text)))
+
+(defmethod (setf clipboard-text) (text (browser t))
+  (trivial-clipboard:text text))
+
 (define-ffi-generic ffi-buffer-copy (buffer)
   (:method :after ((buffer t))
     (ring-insert-clipboard (clipboard-ring *browser*)))

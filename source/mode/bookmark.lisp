@@ -306,7 +306,7 @@ URLS is either a list or a single element."
                            (make-buffer-focus :url (url (first suggestion-values))))
                          (lambda-command copy-url* (suggestions)
                            "Copy bookmark URL."
-                           (trivial-clipboard:text (render-url (url (first suggestions)))))
+                           (setf (clipboard-text *browser*) (render-url (url (first suggestions)))))
                          'delete-bookmark)))
   "Set the URL for the current buffer from a bookmark.
 With multiple selections, open the first bookmark in the current buffer, the

@@ -395,7 +395,7 @@ Only available if `prompter:multi-selection-p' is non-nil."
          ;; Reverse so that text is ordered from oldest mark to newest.
          (text (str:join +newline+ (reverse props))))
     (unless (str:emptyp text)
-      (trivial-clipboard:text text)
+      (setf (clipboard-text *browser*) text)
       (echo "Copied ~s to clipboard." text))))
 
 (define-command-prompt paste (prompt-buffer)

@@ -73,7 +73,7 @@ suggestions."
                         :prompt "Suggest spelling (3+ characters)"
                         :input word
                         :sources 'enchant-source)))
-    (trivial-clipboard:text selected-word)
+    (setf (clipboard-text *browser*) selected-word)
     (echo "Word saved to clipboard.")))
 
 (define-class enchant-source (prompter:source)
@@ -105,7 +105,7 @@ suggestions."
   (let ((selected-text (prompt :prompt "Suggest spelling"
                                :input text
                                :sources 'enchant-text-input)))
-    (trivial-clipboard:text selected-text)
+    (setf (clipboard-text *browser*) selected-text)
     (echo "Text saved to clipboard.")))
 
 (define-class enchant-text-input (prompter:source)

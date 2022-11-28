@@ -189,7 +189,7 @@ file, see the "
 (define-command nyxt-version ()
   "Version number of this version of Nyxt.
 The version number is saved to clipboard."
-  (trivial-clipboard:text +version+)
+  (setf (clipboard-text *browser*) +version+)
   (echo "Version ~a" +version+))
 
 (define-internal-page-command-global new ()

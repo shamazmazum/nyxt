@@ -1506,7 +1506,7 @@ any.")
                   (make-buffer-focus :url (url (first suggestion-values))))
                 (lambda-command copy-url* (suggestions)
                   "Copy the URL of the chosen suggestion."
-                  (trivial-clipboard:text (render-url (url (first suggestions))))))))
+                  (setf (clipboard-text *browser*) (render-url (url (first suggestions))))))))
     (pushnew-url-history history (url (current-buffer)))
     (prompt
      :prompt "Open URL"

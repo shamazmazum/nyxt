@@ -2045,6 +2045,15 @@ As a second value, return the current buffer index starting from 0."
     (webkit:webkit-web-view-web-context (gtk-object buffer)))
    value))
 
+(define-ffi-method (setf clipboard-text) (text (gtk-browser gtk-browser))
+  (gtk:gtk-clipboard-set-text
+   (gtk:gtk-clipboard-get "CLIPBOARD")
+   text))
+
+(define-ffi-method clipboard-text ((gtk-browser gtk-browser))
+  (gtk:gtk-clipboard-wait-for-text
+   (gtk:gtk-clipboard-get "CLIPBOARD")))
+
 (defmethod ffi-buffer-copy ((gtk-buffer gtk-buffer))
   (webkit:webkit-web-view-can-execute-editing-command
    (gtk-object gtk-buffer) webkit2:+webkit-editing-command-copy+

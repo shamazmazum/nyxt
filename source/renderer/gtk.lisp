@@ -1486,6 +1486,9 @@ the `active-buffer'."
           (webkit:webkit-settings-enable-developer-extras settings) t
           (webkit:webkit-settings-enable-page-cache settings) t
           (webkit:webkit-settings-enable-encrypted-media settings) t))
+  (setf (webkit:webkit-settings-default-charset
+         (webkit:webkit-web-view-get-settings (gtk-object buffer)))
+        (default-charset *browser*))
   (connect-signal-function buffer "decide-policy" (make-decide-policy-handler buffer))
   (connect-signal buffer "resource-load-started" nil (web-view resource request)
     (declare (ignore web-view))

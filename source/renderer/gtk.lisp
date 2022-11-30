@@ -1421,6 +1421,9 @@ See `finalize-buffer'."
     (setf (webkit:webkit-settings-enable-write-console-messages-to-stdout
            (webkit:webkit-web-view-get-settings (gtk-object buffer)))
           t))
+  (setf (webkit:webkit-settings-default-charset
+         (webkit:webkit-web-view-get-settings (gtk-object buffer)))
+        (default-charset *browser*))
   (connect-signal-function buffer "decide-policy" (make-decide-policy-handler buffer))
   (connect-signal buffer "resource-load-started" nil (web-view resource request)
     (declare (ignore web-view))

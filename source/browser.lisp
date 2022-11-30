@@ -225,6 +225,10 @@ The handlers take the URL as argument.")
     :type hook-download
     :documentation "Hook run after a download has completed.
 The handlers take the `download-manager:download' class instance as argument.")
+   (default-charset
+    "UTF-8"
+    :type string
+    :documentation "Charset to use when no charset is specified")
    (external-editor-program
     (or (uiop:getenv "VISUAL")
         (uiop:getenv "EDITOR"))

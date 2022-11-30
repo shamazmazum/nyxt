@@ -270,6 +270,10 @@ The handlers take the `prompt-buffer' as argument.")
     :type hook-prompt-buffer
     :documentation "Hook run while waiting for the prompt buffer to be available.
 The handlers take the `prompt-buffer' as argument.")
+   (default-charset
+    "UTF-8"
+    :type string
+    :documentation "Charset to use when no charset is specified")
    (external-editor-program
     (or (uiop:getenvp "VISUAL")
         (uiop:getenvp "EDITOR")

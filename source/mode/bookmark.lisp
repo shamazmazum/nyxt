@@ -193,26 +193,32 @@ In particular, we ignore the protocol (e.g. HTTP or HTTPS does not matter)."
 (define-panel-command-global bookmarks-panel ()
     (panel-buffer "*Bookmarks panel*")
   "Shows all the bookmarks in a compact panel-buffer layout."
-  (spinneret:with-html-string
-    (:style (cl-css:css
-             '((p
-                :font-size "12px"
-                :margin "0"
-                :white-space "nowrap"
-                :overflow-x "hidden"
-                :text-overflow "ellipsis")
-               (div
-                :padding-bottom "10px"))))
-    (:body
-     (:h1 "Bookmarks")
-     (or (let ((bookmarks (files:content (bookmarks-file (current-buffer)))))
-           (loop for bookmark in bookmarks
-                 collect
-                 (let ((url-href (render-url (url bookmark))))
-                   (:div
-                    (:p (title bookmark))
-                    (:p (:a :href url-href url-href))))))
-         (format nil "No bookmarks in ~s." (files:expand (files:content (bookmarks-file (current-buffer)))))))))
+  (let ((bookmarks (group-bookmarks panel-buffer)))
+    (spinneret:with-html-string
+      (:style (cl-css:css
+               '((dl
+                  :font-size "14px"
+                  :white-space "nowrap"
+                  :overflow-x "hidden"
+                  :text-overflow "ellipsis"))))
+      (:body
+       (:h1 "Bookmarks")
+       (cond
+         ((zerop (hash-table-count bookmarks))
+          (:p (format nil "No bookmarks in ~s." (files:expand (bookmarks-file panel-buffer)))))
+         (t (maphash
+             (lambda (tag bookmarks)
+               (:details
+                (:summary (or tag "Unsorted"))
+                (dolist (bookmark bookmarks)
+                  (let ((uri-host (quri:uri-host (url bookmark)))
+                        (url-href (render-url (url bookmark))))
+                    (:dl
+                     (:dt (title bookmark))
+                     (:dd (:a :href url-href uri-host))
+                     (when (tags bookmark)
+                       (:dd (format nil " (~{~a~^, ~})" (tags bookmark)))))))))
+             bookmarks)))))))
 
 (export-always 'url-bookmark-tags)
 (defun url-bookmark-tags (url)

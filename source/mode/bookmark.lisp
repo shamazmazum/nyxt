@@ -202,7 +202,10 @@ In particular, we ignore the protocol (e.g. HTTP or HTTPS does not matter)."
                         (url-href (render-url (url bookmark))))
                     (:dl
                      (:dt (title bookmark))
-                     (:dd (:a :href url-href uri-host))
+                     (:dd (:a :href url-href
+                              :target "_blank"
+                              :rel "noopener noreferrer"
+                              uri-host))
                      (when (tags bookmark)
                        (:dd (format nil " (~{~a~^, ~})" (tags bookmark)))))))))
              bookmarks)))))))

@@ -622,6 +622,12 @@ store them somewhere and `ffi-buffer-delete' them once done."))
   (:accessor-name-transformer (class*:make-name-transformer name))
   (:metaclass user-class))
 
+;; FIXME: panel-buffer is not a context-buffer by design, but
+;; bookmarks-panel needs bookmark-mode anyway.
+(defmethod default-modes append ((buffer panel-buffer))
+  (list
+   (resolve-symbol :bookmark-mode :mode)))
+
 (define-class status-buffer (input-buffer)
   ((window
     nil

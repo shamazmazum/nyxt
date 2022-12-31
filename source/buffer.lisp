@@ -367,7 +367,19 @@ The user can scroll them, zoom, etc."))
                               (when results
                                 (mapcar (lambda (hash-table)
                                           (first (alex:hash-table-values hash-table)))
-                                        (decode-json results)))))))
+                                        (decode-json results))))))
+          (make-instance 'search-engine
+                         :shortcut "ggl"
+                         :search-url "https://google.com/search?q=~a"
+                         :fallback-url (quri:uri "https://google.com/")
+                         :completion-function
+                         (make-search-completion-function
+                          :base-url
+                          "https://suggestqueries.google.com/complete/search?client=firefox&q=~a"
+                          :processing-function
+                          (flet ((process-google-suggestions (string)
+                                   (if string (cadr (decode-json string)))))
+                            #'process-google-suggestions))))
     :type (cons search-engine *)
     :documentation "A list of the `search-engine' objects.
 You can invoke them from the prompt-buffer by prefixing your query with SHORTCUT.

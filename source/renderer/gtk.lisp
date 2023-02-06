@@ -1410,6 +1410,15 @@ See `finalize-buffer'."
       (echo "[~a] ~a: ~a" (webkit:webkit-web-view-uri web-view) title body)
       t)))
 
+(defun buffer-destroy (buffer)
+  (mapc (lambda (handler-id)
+          (gobject:g-signal-handler-disconnect (gtk-object buffer) handler-id))
+        (handler-ids buffer))
+  (nyxt/web-extensions::tabs-on-removed buffer)
+  (nyxt::buffer-hide buffer)
+  (gtk:gtk-widget-destroy (gtk-object buffer))
+  (setf (gtk-object buffer) nil))
+
 (define-ffi-method ffi-buffer-make ((buffer gtk-buffer))
   "Initialize BUFFER's GTK web view."
   (unless (gtk-object buffer) ; Buffer may already have a view, e.g. the prompt-buffer.
@@ -1494,13 +1503,8 @@ See `finalize-buffer'."
      (cffi:foreign-enum-value 'webkit:webkit-web-process-termination-reason reason))
     (buffer-delete buffer))
   (connect-signal buffer "close" nil (web-view)
-    (mapc (lambda (handler-id)
-            (gobject:g-signal-handler-disconnect web-view handler-id))
-          (handler-ids buffer))
-    (nyxt/web-extensions::tabs-on-removed buffer)
-    (buffer-hide buffer)
-    (gtk:gtk-widget-destroy web-view)
-    (setf (gtk-object buffer) nil))
+    (declare (ignore web-view))
+    (buffer-destroy buffer))
   (connect-signal buffer "load-failed" nil (web-view load-event failing-url error)
     (declare (ignore load-event web-view))
     ;; TODO: WebKitGTK sometimes (when?) triggers "load-failed" when loading a
@@ -1617,9 +1621,12 @@ See `finalize-buffer'."
   buffer)
 
 (define-ffi-method ffi-buffer-delete ((buffer gtk-buffer))
-  (if (slot-value buffer 'gtk-object) ; Not all buffers have their own web view, e.g. prompt buffers.
-      (webkit:webkit-web-view-try-close (gtk-object buffer))
-      (buffer-hide buffer)))
+  (cond
+   ((not (slot-value buffer 'gtk-object))
+    (nyxt::buffer-hide buffer))
+   ((webkit:webkit-web-view-is-web-process-responsive (gtk-object buffer))
+    (webkit:webkit-web-view-try-close (gtk-object buffer)))
+   (t (buffer-destroy buffer))))
 
 (define-ffi-method ffi-buffer-load ((buffer gtk-buffer) url)
   "Load URL in BUFFER.

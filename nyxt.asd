@@ -135,7 +135,6 @@
                  (:file "search-engine")
                  (:file "browser")
                  (:file "foreign-interface")
-                 (:file "clipboard")
                  (:file "color")
                  (:file "input")
                  (:file "prompt-buffer")

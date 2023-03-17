@@ -1356,12 +1356,12 @@ proceeding."
 
 (define-command copy-url ()
   "Save current URL to clipboard."
-  (copy-to-clipboard (render-url (url (current-buffer))))
+  (setf (clipboard-text *browser*) (render-url (url (current-buffer))))
   (echo "~a copied to clipboard." (render-url (url (current-buffer)))))
 
 (define-command copy-title ()
   "Save current page title to clipboard."
-  (copy-to-clipboard (title (current-buffer)))
+  (setf (clipboard-text *browser*) (title (current-buffer)))
   (echo "~a copied to clipboard." (title (current-buffer))))
 
 (defun buffer-initial-suggestions (&key current-is-last-p domain)

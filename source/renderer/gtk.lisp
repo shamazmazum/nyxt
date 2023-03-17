@@ -2209,29 +2209,28 @@ As a second value, return the current buffer index starting from 0."
 
 (defmethod ffi-buffer-copy ((gtk-buffer gtk-buffer) &optional (text nil text-provided-p))
   (if text-provided-p
-      (trivial-clipboard:text text)
+      (setf (clipboard-text *browser*) text)
       (let ((channel (nyxt::make-channel 1)))
         (webkit:webkit-web-view-can-execute-editing-command
          (gtk-object gtk-buffer) webkit2:+webkit-editing-command-copy+
-         (lambda (can-execute?)
-           (if can-execute?
-               (progn
-                 (webkit:webkit-web-view-execute-editing-command
-                  (gtk-object gtk-buffer) webkit2:+webkit-editing-command-copy+)
-                 (calispel:! channel t))
-               (calispel:! channel nil)))
+         (lambda (can-execute-p)
+           (cond
+             (can-execute-p
+              (webkit:webkit-web-view-execute-editing-command
+               (gtk-object gtk-buffer) webkit2:+webkit-editing-command-copy+)
+              (calispel:! channel t))
+             (t (calispel:! channel nil))))
          (lambda (e) (echo-warning "Cannot copy: ~a" e)))
         (if (calispel:? channel)
-            (trivial-clipboard:text)
-            nil))))
+            (clipboard-text *browser*)))))
 
 (defmethod ffi-buffer-paste ((gtk-buffer gtk-buffer) &optional (text nil text-provided-p))
   (webkit:webkit-web-view-can-execute-editing-command
    (gtk-object gtk-buffer) webkit2:+webkit-editing-command-paste+
-   (lambda (can-execute?)
-     (when can-execute?
+   (lambda (can-execute-p)
+     (when can-execute-p
        (when text-provided-p
-         (trivial-clipboard:text text))
+         (setf (clipboard-text *browser*) text))
        (webkit:webkit-web-view-execute-editing-command
         (gtk-object gtk-buffer) webkit2:+webkit-editing-command-paste+)))
    (lambda (e) (echo-warning "Cannot paste: ~a" e))))
@@ -2240,17 +2239,16 @@ As a second value, return the current buffer index starting from 0."
   (let ((channel (nyxt::make-channel 1)))
     (webkit:webkit-web-view-can-execute-editing-command
      (gtk-object gtk-buffer) webkit2:+webkit-editing-command-cut+
-     (lambda (can-execute?)
-       (if can-execute?
-           (progn
-             (webkit:webkit-web-view-execute-editing-command
-              (gtk-object gtk-buffer) webkit2:+webkit-editing-command-cut+)
-             (calispel:! channel t))
-           (calispel:! channel nil)))
+     (lambda (can-execute-p)
+       (cond
+         (can-execute-p
+          (webkit:webkit-web-view-execute-editing-command
+           (gtk-object gtk-buffer) webkit2:+webkit-editing-command-cut+)
+          (calispel:! channel t))
+         (t (calispel:! channel nil))))
      (lambda (e) (echo-warning "Cannot cut: ~a" e)))
     (if (calispel:? channel)
-        (trivial-clipboard:text)
-        nil)))
+        (clipboard-text *browser*))))
 
 (defmethod ffi-buffer-select-all ((gtk-buffer gtk-buffer))
   (webkit:webkit-web-view-can-execute-editing-command

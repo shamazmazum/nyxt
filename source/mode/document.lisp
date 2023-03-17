@@ -35,7 +35,6 @@ It does not assume being online."))
       (list
        "C-c" 'copy
        "C-v" 'paste
-       "M-v" 'paste-from-clipboard-ring
        "C-x" 'cut
        "C-a" 'select-all
        "C-z" 'undo
@@ -68,7 +67,6 @@ It does not assume being online."))
        "C-g" 'nothing              ; Emacs users may hit C-g out of habit.
        "M-w" 'copy
        "C-y" 'paste
-       "M-y" 'paste-from-clipboard-ring
        "C-w" 'cut
        "C-x h" 'select-all
        "C-/" 'undo
@@ -93,7 +91,6 @@ It does not assume being online."))
        "y y" 'copy
        "p" 'paste
        ;; Debatable: means "insert after cursor" in Vi(m).
-       "P" 'paste-from-clipboard-ring
        "d d" 'cut
        "u" 'undo
        "C-r" 'redo
@@ -174,24 +171,6 @@ It does not assume being online."))
   "Paste from clipboard into active element."
   (ffi-buffer-paste buffer))
 
-(define-class ring-source (prompter:source)
-  ((prompter:name "Clipboard ring")
-   (ring :initarg :ring :accessor ring :initform nil)
-   (prompter:constructor
-    (lambda (source)
-      (containers:container->list (ring source))))
-   (prompter:return-actions
-    (list (lambda-command paste* (ring-items)
-            (ffi-buffer-paste (current-buffer) (first ring-items))))))
-  (:export-class-name-p t)
-  (:metaclass user-class))
-
-(define-command paste-from-clipboard-ring ()
-  "Show `*browser*' clipboard ring and paste selected entry."
-  (ring-insert-clipboard (clipboard-ring *browser*))
-  (prompt :prompt "Paste from ring"
-          :sources (make-instance 'ring-source :ring (clipboard-ring *browser*))))
-
 (define-command copy (&optional (buffer (current-buffer)))
   "Copy selected text to clipboard."
   (ffi-buffer-copy buffer))
@@ -201,7 +180,7 @@ It does not assume being online."))
   (let ((current-value (ps-eval (ps:@ document active-element placeholder))))
     (if (eq current-value :undefined)
         (echo "No active selected placeholder.")
-        (progn (copy-to-clipboard current-value)
+        (progn (setf (clipboard-text *browser*) current-value)
                (echo "Placeholder copied.")))))
 
 (define-command cut (&optional (buffer (current-buffer)))

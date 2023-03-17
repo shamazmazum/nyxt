@@ -119,7 +119,6 @@
                  (:file "search-engine")
                  (:file "browser")
                  (:file "foreign-interface")
-                 (:file "clipboard")
                  (:file "input")
                  (:file "prompt-buffer")
                  (:file "command-commands")

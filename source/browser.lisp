@@ -79,10 +79,6 @@ and that ought to be killed when quitting.")
     :reader messages-content
     :documentation "A list of all echoed messages.
 Most recent messages are first.")
-   (clipboard-ring
-    (make-ring)
-    :documentation "The ring with all the clipboard contents Nyxt could cache.
-Note that it may be incomplete.")
    (prompt-buffer-generic-history
     (make-ring)
     :documentation "The default history of all prompt buffer entries.

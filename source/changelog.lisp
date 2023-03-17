@@ -466,9 +466,6 @@ SLY install.")
    (:li (:code "default-modes") " can be configured with "
         (:code "%slot-value%") ".")
    (:li "Add " (:nxref :command 'toggle-maximize) " command for maximizing a window.")
-   (:li "All copying and pasting commands populate "
-        (:nxref :class-name 'browser :slot 'clipboard-ring) " reliably, thus fixing the "
-        (:nxref :command 'nyxt/document-mode:paste-from-clipboard-ring) " command.")
    (:li "Major improvement of " (:nxref :class-name 'nyxt/editor-mode:editor-mode) ".")
    (:li (:code "execute-command")
         " evaluates arbitrary Lisp code and provides inline documentation for symbols.")
@@ -493,9 +490,6 @@ auto-mode-rules.lisp)")))
    (:li (:nxref :class-name 'nyxt/editor-mode:editor-mode)
         " now has an equally powerful set of bindings in all key schemes, allowing one
 to open a file, save it, switch buffer or delete current buffer.")
-   (:li (:nxref :command 'nyxt/document-mode:paste-from-clipboard-ring) " is now conveniently bound to "
-        (:code "M-y") " in Emacs scheme of "
-        (:nxref :class-name 'nyxt/document-mode:document-mode) ".")
    (:li "Prompt buffer now has familiar bindings for text cutting.")
    (:li "Add " (:code "nyxt/prompt-buffer-mode:set-selection-action")
         ", bound to " (:code "C-c C-j") "by default.")

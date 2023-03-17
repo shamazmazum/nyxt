@@ -94,10 +94,6 @@ This slot is mostly meant to clean up the thread if necessary.")
     :reader messages-content
     :documentation "A list of all echoed messages.
 Most recent messages are first.")
-   (clipboard-ring
-    (make-ring)
-    :documentation "The ring with all the clipboard contents Nyxt could cache.
-Note that it may be incomplete.")
    (command-model
     (make-instance 'analysis:sequence-model)
     :documentation "This model is used to generate predictions for what the user will do.

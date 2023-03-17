@@ -59,7 +59,6 @@ Important pieces of functionality are:
        "C-M-h" 'jump-to-heading-buffers
        "C-c" 'copy
        "C-v" 'paste
-       "M-v" 'paste-from-clipboard-ring
        "C-x" 'cut
        "C-a" 'select-all
        "C-z" 'undo
@@ -84,7 +83,6 @@ Important pieces of functionality are:
        "C-g" 'nothing              ; Emacs users may hit C-g out of habit.
        "M-w" 'copy
        "C-y" 'paste
-       "M-y" 'paste-from-clipboard-ring
        "C-w" 'cut
        "C-x h" 'select-all
        "C-/" 'undo
@@ -109,7 +107,6 @@ Important pieces of functionality are:
        "y y" 'copy
        "p" 'paste
        ;; Debatable: means "insert after cursor" in Vi(m).
-       "P" 'paste-from-clipboard-ring
        "d d" 'cut
        "u" 'undo
        "C-r" 'redo
@@ -150,26 +147,6 @@ Important pieces of functionality are:
 (define-command paste (&optional (buffer (current-buffer)))
   "Paste from clipboard into active element."
   (ffi-buffer-paste buffer))
-
-(define-class ring-source (prompter:source)
-  ((prompter:name "Clipboard ring")
-   (ring :initarg :ring :accessor ring :initform nil)
-   (prompter:filter-preprocessor #'prompter:filter-exact-matches)
-   (prompter:constructor
-    (lambda (source)
-      (containers:container->list (ring source))))
-   (prompter:actions-on-return (lambda-command paste* (ring-items)
-                                 (ffi-buffer-paste (current-buffer) (first ring-items)))))
-  (:export-class-name-p t)
-  (:metaclass user-class)
-  (:documentation "Source for previous clipboard contents.
-Only includes the strings that were pasted/copied inside Nyxt."))
-
-(define-command paste-from-clipboard-ring ()
-  "Show `*browser*' clipboard ring and paste selected entry."
-  (ring-insert-clipboard (clipboard-ring *browser*))
-  (prompt :prompt "Paste from ring"
-          :sources (make-instance 'ring-source :ring (clipboard-ring *browser*))))
 
 (define-command copy (&optional (buffer (current-buffer)))
   "Copy selected text to clipboard."

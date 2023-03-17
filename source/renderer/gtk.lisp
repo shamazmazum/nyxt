@@ -1846,6 +1846,15 @@ As a second value, return the current buffer index starting from 0."
 (defmethod disable :after ((mode nyxt/mode/reduce-tracking:reduce-tracking-mode) &key)
   (setf (itp-enabled-p (buffer mode)) nil))
 
+(define-ffi-method (setf clipboard-text) (text (gtk-browser gtk-browser))
+  (gtk:gtk-clipboard-set-text
+   (gtk:gtk-clipboard-get "CLIPBOARD")
+   text))
+
+(define-ffi-method clipboard-text ((gtk-browser gtk-browser))
+  (gtk:gtk-clipboard-wait-for-text
+   (gtk:gtk-clipboard-get "CLIPBOARD")))
+
 (defmethod ffi-buffer-copy ((gtk-buffer gtk-buffer) &optional (text nil text-provided-p))
   (if text-provided-p
       (setf (clipboard-text *browser*) text)

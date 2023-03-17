@@ -129,13 +129,7 @@ full URL including the 'http://' prefix.")
          (list-command-information '(nyxt/mode/document:copy nyxt/mode/document:paste)))
         (:p "Passing through webpage's data:")
         (:ul
-         (list-command-information '(copy-url copy-title nyxt/mode/hint:copy-hint-url)))
-        (:p "Leveraging password managers: ")
-        (:ul
-         (list-command-information '(nyxt/mode/password:copy-username nyxt/mode/password:copy-password)))
-        (:p "And more: ")
-        (:ul
-         (list-command-information '(nyxt/mode/document:paste-from-clipboard-ring show-system-information))))
+         (list-command-information '(copy-url copy-title nyxt/mode/hint:copy-hint-url))))
 
       (:nsection :title "Link navigation"
         (:p "Link-hinting allows you to visit URLs on a page without using the mouse.

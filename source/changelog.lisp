@@ -496,9 +496,6 @@ extension.")
 the " (:code "nyxt-user") " package.")
      (:li "Various " (:nxref :mode 'nyxt/mode/spell-check:spell-check-mode)
           " fixes. (Thanks to @hendursaga!) ")
-     (:li "All copying and pasting commands populate "
-          (:nxref :class-name 'browser :slot 'clipboard-ring) " reliably, thus fixing the "
-          (:nxref :command 'nyxt/mode/document:paste-from-clipboard-ring) " command.")
      (:li "Fix touchscreen gestures for VI mode.")
      (:li "Fix processing via relative paths when opening files.")
      (:li "Fix buffer re-attachment from the deleted window.")
@@ -535,9 +532,6 @@ forever.")
 to open a file, save it, switch buffer or delete current buffer.")
      (:li (:nxref :mode 'nyxt/mode/visual:visual-mode)
           " now has more VI bindings (thanks to @CorruptedVor!)")
-     (:li (:nxref :command 'nyxt/mode/document:paste-from-clipboard-ring)
-          " is now conveniently bound to " (:code "M-y") " in Emacs scheme of "
-          (:nxref :class-name 'nyxt/mode/document:document-mode) ".")
      (:li "Add Emacs/VI text editing bindings in "
           (:nxref :mode 'nyxt/mode/prompt-buffer:prompt-buffer-mode)
           " and " (:nxref :command 'nyxt/mode/repl:repl) ".")

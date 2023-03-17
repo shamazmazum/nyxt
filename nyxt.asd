@@ -267,8 +267,7 @@
   :class :nasdf-system
   :depends-on (nyxt cl-webkit2)
   :pathname #p"NYXT:source;"
-  :components ((:file "renderer/gtk")
-               ;; TODO: Port to other renderers.
+  :components (;; TODO: Port to other renderers.
                (:file "mode/blocker")
                (:file "mode/certificate-exception")
                (:file "mode/force-https")
@@ -277,7 +276,10 @@
                (:file "mode/no-script")
                (:file "mode/no-webgl")
                (:file "mode/proxy")
-               (:file "mode/reduce-tracking")))
+               (:file "mode/reduce-tracking")
+
+               (:file "renderer/gtk-clipboard")
+               (:file "renderer/gtk")))
 
 (defsystem "nyxt/gi-gtk"
   :defsystem-depends-on ("nasdf")

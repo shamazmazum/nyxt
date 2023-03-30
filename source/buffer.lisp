@@ -938,25 +938,17 @@ BUFFER's modes."
   (title buffer))
 
 ;; See https://webkitgtk.org/reference/webkit2gtk/stable/WebKitWebView.html#WebKitLoadEvent
-(export-always 'on-signal-load-started)
-(defmethod on-signal-load-started ((buffer buffer) url)
-  (dolist (mode (modes buffer))
-    (on-signal-load-started mode url)))
-
-(export-always 'on-signal-load-redirected)
-(defmethod on-signal-load-redirected ((buffer buffer) url)
-  (dolist (mode (modes buffer))
-    (on-signal-load-redirected mode url)))
-
-(export-always 'on-signal-load-canceled)
-(defmethod on-signal-load-canceled ((buffer buffer) url)
-  (dolist (mode (modes buffer))
-    (on-signal-load-redirected mode url)))
-
-(export-always 'on-signal-load-committed)
-(defmethod on-signal-load-committed ((buffer buffer) url)
-  (dolist (mode (modes buffer))
-    (on-signal-load-committed mode url)))
+(macrolet ((def-simple-signal-handler (name)
+             `(progn
+                (export-always ',name)
+                (defmethod ,name ((buffer buffer) url)
+                  (dolist (mode (modes buffer))
+                    (,name mode url))))))
+  (def-simple-signal-handler on-signal-load-started)
+  (def-simple-signal-handler on-signal-load-redirected)
+  (def-simple-signal-handler on-signal-load-canceled)
+  (def-simple-signal-handler on-signal-load-committed)
+  (def-simple-signal-handler on-signal-load-failed))
 
 (export-always 'on-signal-load-finished)
 (defmethod on-signal-load-finished ((buffer buffer) url)
@@ -964,11 +956,6 @@ BUFFER's modes."
   (dolist (mode (modes buffer))
     (on-signal-load-finished mode url))
   (run-thread "buffer-loaded-hook" (hooks:run-hook (buffer-loaded-hook buffer) buffer)))
-
-(export-always 'on-signal-load-failed)
-(defmethod on-signal-load-failed ((buffer buffer) url)
-  (dolist (mode (modes buffer))
-    (on-signal-load-failed mode url)))
 
 (hooks:define-hook-type buffer (function (buffer)))
 

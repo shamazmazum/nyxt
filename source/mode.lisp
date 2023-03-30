@@ -455,30 +455,20 @@ If there is no corresponding keymap, return nil."
                           keyscheme:cua)
                       (keyscheme-map mode)))
 
-(defmethod on-signal-notify-uri ((mode mode) url)
-  url)
+(macrolet ((def-simple-signal-handler (name)
+             `(defmethod ,name ((mode mode) url)
+               url)))
+  (def-simple-signal-handler on-signal-notify-uri)
+  (def-simple-signal-handler on-signal-load-started)
+  (def-simple-signal-handler on-signal-load-redirected)
+  (def-simple-signal-handler on-signal-load-canceled)
+  (def-simple-signal-handler on-signal-load-committed)
+  (def-simple-signal-handler on-signal-load-finished)
+  (def-simple-signal-handler on-signal-load-failed))
 
 (defmethod on-signal-notify-title ((mode mode) title)
   (on-signal-notify-uri mode (url (buffer mode)))
   title)
-
-(defmethod on-signal-load-started ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-redirected ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-canceled ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-committed ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-finished ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-failed ((mode mode) url)
-  url)
 
 (defmethod url-sources ((mode mode) return-actions)
   (declare (ignore return-actions))

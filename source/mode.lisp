@@ -460,38 +460,27 @@ If there is no corresponding keymap, return nil."
                           keyscheme:cua)
                       (keyscheme-map mode)))
 
-(defmethod on-signal-notify-uri ((mode mode) url)
-  url)
+(macrolet ((def-simple-signal-handler (name)
+             `(defmethod ,name ((mode mode) url)
+               url)))
+  (def-simple-signal-handler on-signal-notify-uri)
+  (def-simple-signal-handler on-signal-load-started)
+  (def-simple-signal-handler on-signal-load-redirected)
+  (def-simple-signal-handler on-signal-load-canceled)
+  (def-simple-signal-handler on-signal-load-committed)
+  (def-simple-signal-handler on-signal-load-finished)
+  (def-simple-signal-handler on-signal-load-failed))
+
+(macrolet ((def-simple-signal-handler (name)
+             `(defmethod ,name ((mode mode) arg)
+                (declare (ignore arg))
+                nil)))
+  (def-simple-signal-handler on-signal-button-press)
+  (def-simple-signal-handler url-sources))
 
 (defmethod on-signal-notify-title ((mode mode) title)
   (on-signal-notify-uri mode (url (buffer mode)))
   title)
-
-(defmethod on-signal-load-started ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-redirected ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-canceled ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-committed ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-finished ((mode mode) url)
-  url)
-
-(defmethod on-signal-load-failed ((mode mode) url)
-  url)
-
-(defmethod on-signal-button-press ((mode mode) button-key)
-  (declare (ignorable button-key))
-  nil)
-
-(defmethod url-sources ((mode mode) return-actions)
-  (declare (ignore return-actions))
-  nil)
 
 (defmethod url-sources :around ((mode mode) return-actions)
   (declare (ignore return-actions))

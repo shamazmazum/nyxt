@@ -11,13 +11,13 @@
    (rememberable-p nil)
    (style
     (theme:themed-css (theme *browser*)
-      `(".nyxt-search-node .nyxt-hint"
+      `(".nyxt-search-node .nyxt-search-hint"
         :background-color ,theme:secondary
         :color ,theme:on-secondary
         :padding "0px"
         :border-radius "0px"
         :z-index #.(1- (expt 2 31)))
-      `(".nyxt-search-node > .nyxt-hint.nyxt-select-hint"
+      `(".nyxt-search-node > .nyxt-search-hint.nyxt-select-hint"
         :background-color ,theme:accent
         :color ,theme:on-accent))
     :documentation "The style of the search overlays.")
@@ -48,10 +48,10 @@
   (defvar *node-replacements* (array))
 
   (defun add-stylesheet ()
-    (unless (nyxt/ps:qs document "#nyxt-stylesheet")
+    (unless (nyxt/ps:qs document "#nyxt-search-stylesheet")
       (ps:try
        (ps:let ((style-element (ps:chain document (create-element "style"))))
-         (setf (ps:@ style-element id) "nyxt-stylesheet")
+         (setf (ps:@ style-element id) "nyxt-search-stylesheet")
          (ps:chain document head (append-child style-element))
          (setf (ps:chain style-element inner-text)
                (ps:lisp (style (find-submode 'nyxt/search-buffer-mode:search-buffer-mode)))))
@@ -62,9 +62,9 @@
 
   (defun create-match-span (body identifier)
     (ps:let* ((el (ps:chain document (create-element "span"))))
-      (setf (ps:@ el class-name) "nyxt-hint")
+      (setf (ps:@ el class-name) "nyxt-search-hint")
       (setf (ps:@ el text-content) body)
-      (setf (ps:@ el id) (+ "nyxt-hint-" identifier))
+      (setf (ps:@ el id) (+ "nyxt-search-hint-" identifier))
       el))
 
   (defun get-substring (string query index)
@@ -193,7 +193,8 @@
                 (equal (buffer hint) buffer)))
           (with-current-buffer buffer
             (nyxt/hint-mode:highlight-selected-hint :element hint
-                                                    :scroll scroll))
+                                                    :scroll scroll
+                                                    :id-prefix "nyxt-search-hint"))
           (nyxt/hint-mode:unhighlight-selected-hint)))))
 
 (define-class search-buffer-source (prompter:source)

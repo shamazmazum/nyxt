@@ -98,10 +98,10 @@ For instance, to include images:
        "g F" 'follow-hint-nosave-buffer-focus)))))
 
 (define-parenscript-async add-stylesheet ()
-  (unless (nyxt/ps:qs document "#nyxt-stylesheet")
+  (unless (nyxt/ps:qs document "#nyxt-hint-stylesheet")
     (ps:try
      (ps:let ((style-element (ps:chain document (create-element "style"))))
-       (setf (ps:@ style-element id) "nyxt-stylesheet")
+       (setf (ps:@ style-element id) "nyxt-hint-stylesheet")
        (ps:chain document head (append-child style-element))
        (setf (ps:chain style-element inner-text)
              (ps:lisp (style (find-submode 'hint-mode)))))
@@ -200,8 +200,9 @@ For instance, to include images:
   (plump:attribute element "nyxt-hint"))
 
 (export-always 'highlight-selected-hint)
-(define-parenscript highlight-selected-hint (&key element scroll)
-  (let ((%element (nyxt/ps:qs document (ps:lisp (format nil "#nyxt-hint-~a"
+(define-parenscript highlight-selected-hint (&key element scroll (id-prefix "nyxt-hint"))
+  (let ((%element (nyxt/ps:qs document (ps:lisp (format nil "#~a-~a"
+                                                        id-prefix
                                                         (identifier element))))))
     (when %element
       (unless (ps:chain %element class-list (contains "nyxt-select-hint"))

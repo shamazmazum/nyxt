@@ -1043,6 +1043,11 @@ See `finalize-buffer'."
         (ffi-buffer-load-html
          buffer (nyxt/mode/small-web:gemtext-render (or (ignore-errors (dex:get (quri:render-uri url))) "") buffer)
          url))
+       ((and (string= (mime-type request-data) "application/pdf")
+             (always-download-pdfs-p buffer))
+        (log:debug "PDF.js is disabled for this buffer, downloading ~s"
+                   (render-url (url request-data)))
+        (webkit:webkit-policy-decision-download response-policy-decision))
        ((not (known-type-p request-data))
         (log:debug "Initiate download of ~s." (render-url (url request-data)))
         (webkit:webkit-policy-decision-download response-policy-decision))

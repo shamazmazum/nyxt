@@ -472,6 +472,10 @@ query is not a valid URL, or the first keyword is not recognized.")
     :type boolean
     :documentation "Whether auto-completion acts on non-prefixed searches.
 Suggestions are computed by the default search engine.")
+   (always-download-pdfs-p
+    t
+    :type boolean
+    :documentation "Whether to download PDF files or show them in browser if possible")
    (download-directory
     (make-instance 'download-directory)
     :type download-directory

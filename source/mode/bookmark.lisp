@@ -197,13 +197,11 @@ against date, given `prompter:active-attributes-keys' configuration."))
 (define-panel-command-global bookmarks-panel ()
     (panel-buffer "*Bookmarks panel*")
   "Shows all the bookmarks in a compact panel-buffer layout."
-
-
    (let ((bookmarks (group-bookmarks (current-buffer))))
     (spinneret:with-html-string
       (:nstyle
-        '(dl
-          :font-size "14px"
+        '(dt
+          :font-size 14px
           :white-space nowrap
           :overflow-x hidden
           :text-overflow ellipsis))

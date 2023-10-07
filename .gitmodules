@@ -589,9 +589,6 @@
 	path = _build/cl-colors2
 	url = https://codeberg.org/cage/cl-colors2
 	shallow = false # Notabug does not advertize commits.
-[submodule "_build/chipz"]
-	path = _build/chipz
-	url = https://github.com/sharplispers/chipz
 [submodule "_build/cl-cffi-gtk"]
 	path = _build/cl-cffi-gtk
 	url = https://github.com/sharplispers/cl-cffi-gtk
@@ -604,3 +601,6 @@
 	path = _build/cl-sqlite
 	url = https://github.com/TeMPOraL/cl-sqlite
 	shallow = true
+[submodule "_build/chipz"]
+	path = _build/chipz
+	url = https://github.com/sharplispers/chipz

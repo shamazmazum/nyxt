@@ -10,10 +10,9 @@
           :documentation "The hook value.")))
 
 (defun command-attributes (command &optional (buffer (active-buffer (current-window :no-rescan))))
-  (let* ((bindings (keymaps:pretty-binding-keys
+  (let* ((bindings (keymaps:binding-keys
                     (name command)
-                    (current-keymaps buffer)
-                    :print-style (keymaps:name (keyscheme buffer)))))
+                    (current-keymaps buffer))))
     `(("Name" ,(string-downcase (closer-mop:generic-function-name command)))
       ("Bindings" ,(format nil "~{~a~^, ~}" bindings))
       ("Docstring" ,(documentation-line command 'function "") nil 4)

@@ -18,8 +18,8 @@
          (keymaps (cons (override-map buffer)
                         (delete nil (mapcar #'keymap modes)))))
     (unwind-protect
-         (or (first (keymaps:pretty-binding-keys fn keymaps :print-style (keymaps:name (keyscheme buffer))))
-             "unbound")
+         (or (first (keymaps:binding-keys fn keymaps))
+             "UNBOUND")
       (unless current-buffer
         (buffer-delete buffer)))))
 

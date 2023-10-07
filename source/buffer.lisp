@@ -592,7 +592,19 @@ down."))
                            :shortcut "a"
                            :search-url "https://search.atlas.engineer/searxng/search?q=~a"
                            :fallback-url (quri:uri "https://search.atlas.engineer")
-                           :completion-function ddg-completion)))
+                           :completion-function ddg-completion)
+            (make-instance 'search-engine
+                           :shortcut "ggl"
+                           :search-url "https://google.com/search?q=~a"
+                           :fallback-url (quri:uri "https://google.com/")
+                           :completion-function
+                           (make-search-completion-function
+                            :base-url
+                            "https://suggestqueries.google.com/complete/search?client=firefox&q=~a"
+                            :processing-function
+                            (flet ((process-google-suggestions (string)
+                                     (if string (coerce (elt (j:decode string) 1) 'list))))
+                              #'process-google-suggestions)))))
     :type (cons search-engine *)
     :documentation "A list of the `search-engine' objects.
 You can invoke them from the prompt buffer by prefixing your query with

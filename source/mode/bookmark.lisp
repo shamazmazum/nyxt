@@ -211,7 +211,7 @@ against date, given `prompter:active-attributes-keys' configuration."))
                       (:nsection
                         :title (or tag "Unsorted")
                         :id (or tag "unsorted")
-                        :open-p t
+                        :open-p nil
                         (dolist (bookmark bookmarks)
                           (:dl (:dt (:a :href (render-url (url bookmark))
                                         :target "_blank"

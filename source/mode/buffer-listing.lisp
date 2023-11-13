@@ -127,6 +127,7 @@ shown linearly instead."
   (alex:when-let ((panel-buffer (first (nyxt::panel-buffers window))))
     (reload-panel-buffer panel-buffer)))
 
+#+nil
 (define-configuration window
   ((window-set-buffer-hook
     (hooks:add-hook %slot-default% 'buffers-panel-handler-set-buffer))))
@@ -136,6 +137,7 @@ shown linearly instead."
   (alex:when-let ((panel-buffer (first (nyxt::panel-buffers (current-window)))))
     (reload-panel-buffer panel-buffer)))
 
+#+nil
 (define-configuration network-buffer
   ((buffer-loaded-hook
     (hooks:add-hook %slot-default% 'buffers-panel-reload-handler))

@@ -330,7 +330,7 @@ buffers in the background."
 
 (export-always 'list-bookmarks)
 (define-internal-page-command-global list-bookmarks ()
-    (bookmarks-buffer "*Bookmarks*")
+    (bookmarks-buffer "*Bookmarks*" 'bookmark-mode)
   "List all bookmarks in a new buffer.
 Splits bookmarks into groups by tags."
   (let ((bookmarks (group-bookmarks bookmarks-buffer)))
@@ -355,9 +355,21 @@ Splits bookmarks into groups by tags."
                       (:div :class "bookmark-entry"
                             (:dl
                              (:dt
+                              (:button
+                               :onclick
+                               (ps:ps
+                                 (let ((section (ps:chain (nyxt/ps:active-element document)
+                                                          (closest ".bookmark-entry"))))
+                                   (ps:chain section parent-node (remove-child section)))
+                                 (nyxt/ps:lisp-call delbkm
+                                                    :buffer bookmarks-buffer
+                                                    :args (:href url-href)))
+                               "✕")
                               (:a :href url-href (title bookmark)))
                              (when (tags bookmark)
-                               (:dd (:pre (format nil "Tags: ~{~a~^, ~}" (tags bookmark))))))))))))
+                               (:dd
+                                (:pre
+                                 (format nil "Tags: ~{~a~^, ~}" (tags bookmark))))))))))))
             bookmarks))))))
 
 (defmethod serialize-object ((entry bookmark-entry) stream)

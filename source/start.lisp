@@ -182,9 +182,11 @@ Without --remote, it also disables socket use."))))
     (mapc #'destroy-thread* (non-terminating-threads *browser*))
     (ffi-kill-browser *browser*)
     ;; Reset global state.
-    (setf *browser* nil
-          *options* nil)
-    (uninstall *renderer*)
+    #-freebsd
+    (progn
+      (setf *browser* nil
+            *options* nil)
+      (uninstall *renderer*))
     ;; On FreeBSD this may cause freeze. Also we have to pass
     ;; FINISH-OUTPUT = NIL in FFI-INITIALIZE.
     #-freebsd

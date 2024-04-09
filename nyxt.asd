@@ -33,7 +33,6 @@
                cl-ppcre-unicode
                cl-prevalence
                cl-qrencode
-               cl-tld
                closer-mop
                dissect
                moptilities

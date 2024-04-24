@@ -185,9 +185,6 @@ Without --remote, it also disables socket use."))))
     (setf *browser* nil
           *options* nil)
     (uninstall *renderer*)
-    ;; On FreeBSD this may cause freeze. Also we have to pass
-    ;; FINISH-OUTPUT = NIL in FFI-INITIALIZE.
-    #-freebsd
     (unless *run-from-repl-p*
       (run-thread "force-quitter"
         ;; Force-quit in case `ffi-kill-browser' hangs.  Must be run in a

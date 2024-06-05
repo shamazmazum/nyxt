@@ -501,11 +501,14 @@ response.  The BODY is wrapped with `with-protect'."
          (connect-signal window "window-state-event" nil (widget event)
            (declare (ignore widget))
            (setf (nyxt::fullscreen-p window)
-                 (find :fullscreen
-                       (gdk:gdk-event-window-state-new-window-state event)))
+                 (sera:true
+                  (find :fullscreen
+                        (gdk:gdk-event-window-state-new-window-state event))))
            (setf (nyxt::maximized-p window)
-                 (find :maximized
-                       (gdk:gdk-event-window-state-new-window-state event)))
+                 (sera:true
+                  (find :maximized
+                        (gdk:gdk-event-window-state-new-window-state event))))
+           (toggle-toolbars-on-fullscreen)
            nil))
 
        (unless nyxt::*headless-p*
@@ -1660,12 +1663,12 @@ the `active-buffer'."
   (connect-signal buffer "enter-fullscreen" nil (web-view)
     (declare (ignore web-view))
     (setf (nyxt::fullscreen-p (current-window)) t)
-    (toggle-fullscreen :skip-renderer-resize t)
+    (toggle-toolbars-on-fullscreen)
     nil)
   (connect-signal buffer "leave-fullscreen" nil (web-view)
     (declare (ignore web-view))
     (setf (nyxt::fullscreen-p (current-window)) nil)
-    (toggle-fullscreen :skip-renderer-resize t)
+    (toggle-toolbars-on-fullscreen)
     nil)
   (when (context-buffer-p buffer)
     (connect-signal buffer "user-message-received" nil (view message)

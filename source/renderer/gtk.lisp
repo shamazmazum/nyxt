@@ -210,18 +210,19 @@ the renderer thread, use `defmethod' instead."
   "gtk:within-main-loop handles all the GTK initialization."
   (declare (ignore urls startup-timestamp))
   (log:debug "Initializing GTK Interface")
-  (if gtk-running-p
-      (within-gtk-thread (call-next-method))
-      (progn
-        (setf gtk-running-p t)
-        (glib:g-set-prgname "nyxt")
-        (gdk:gdk-set-program-class "Nyxt")
-        (gtk:within-main-loop
-          (with-protect ("Error on GTK thread: ~a" :condition)
-            (call-next-method)))
-        (unless nyxt::*run-from-repl-p*
-          (gtk:join-gtk-main)
-          (uiop:quit (nyxt:exit-code browser))))))
+  (sb-int:with-float-traps-masked (:invalid :divide-by-zero)
+    (if gtk-running-p
+        (within-gtk-thread (call-next-method))
+        (progn
+          (setf gtk-running-p t)
+          (glib:g-set-prgname "nyxt")
+          (gdk:gdk-set-program-class "Nyxt")
+          (gtk:within-main-loop
+           (with-protect ("Error on GTK thread: ~a" :condition)
+             (call-next-method)))
+          (unless nyxt::*run-from-repl-p*
+            (gtk:join-gtk-main)
+            (uiop:quit (nyxt:exit-code browser)))))))
 
 (define-ffi-method ffi-kill-browser ((browser gtk-browser))
   ;; TODO: Terminating the GTK thread from the REPL seems to prevent Nyxt from

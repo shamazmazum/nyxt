@@ -1417,6 +1417,7 @@ the `active-buffer'."
           (webkit:webkit-script-dialog-unref dialog))
         t))))
 
+#+nil
 (defun process-permission-request (web-view request)
   (g:g-object-ref (g:pointer request))
   (run-thread "permission requester"
@@ -1531,6 +1532,7 @@ the `active-buffer'."
   (connect-signal-function buffer "script-dialog" #'process-script-dialog)
   (connect-signal-function buffer "run-file-chooser" #'process-file-chooser-request)
   (connect-signal-function buffer "run-color-chooser" #'process-color-chooser-request)
+  #+nil
   (connect-signal-function buffer "permission-request" #'process-permission-request)
   (connect-signal-function buffer "show-notification" #'process-notification)
   ;; TLS certificate handling

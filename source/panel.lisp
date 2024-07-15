@@ -27,7 +27,11 @@ When provided, PANELS are deleted instead."
   (delete-panel-buffer :panels (panel-buffers window)))
 
 (define-class panel-page (internal-page)
-  ((side
+  ((causes-buffer-tracking-p
+    nil
+    :type boolean
+    :documentation "The buffer showing this page is reloaded when a buffer is created or deleted")
+   (side
     :left
     :type (member :left :right)
     :documentation "The side of the window where the panel is displayed."))
@@ -59,7 +63,9 @@ panel."))
             (window-add-panel-buffer
              (current-window)
              (buffer-load (nyxt-url (name ,page) ,@(mappend #'first keywords))
-                          :buffer (make-instance 'panel-buffer))
+                          :buffer (make-instance
+                                   'panel-buffer
+                                   :tracks-buffers-p (causes-buffer-tracking-p ,page)))
              (side ,page))))))))
 
 ;; FIXME: Better way to compose HTML wrappers?
@@ -91,7 +97,8 @@ panel."))
 
 (export-always 'define-panel-command)
 (defmacro define-panel-command (name (&rest arglist)
-                                (buffer-var title &optional (side :left))
+                                (buffer-var title &key
+                                            (side :left) causes-buffer-tracking-p)
                                 &body body)
   "Define a panel buffer and:
 - A local command called NAME, creating this panel-buffer or closing it if it's shown already.
@@ -130,14 +137,28 @@ mapped to query parameters."
                            (declare (ignorable ,@(mappend #'cdar keywords)))
                            ,title))))
            (setf (slot-value #',name 'side) ,side)
+           (setf (slot-value #',name 'causes-buffer-tracking-p) ,causes-buffer-tracking-p)
            (setf (form gf) wrapped-body))))))
 
 (export-always 'define-panel-command-global)
 (defmacro define-panel-command-global (name (&rest arglist)
-                                       (buffer-var title &optional (side :left))
+                                       (buffer-var title &key
+                                                   (side :left) causes-buffer-tracking-p)
                                        &body body)
   "Define a panel buffer with a global command showing it.
 
 See `define-panel-command' for the description of the arguments."
-  `(prog1 (define-panel-command ,name (,@arglist) (,buffer-var ,title ,side) ,@body)
+  `(prog1 (define-panel-command ,name (,@arglist)
+              (,buffer-var ,title
+               :side ,side
+               :causes-buffer-tracking-p ,causes-buffer-tracking-p)
+            ,@body)
      (setf (slot-value #',name 'visibility) :global)))
+
+(export-always 'reload-tracking-panels)
+(defun reload-tracking-panels (window)
+  "Reload panels which track buffer events"
+  (when window
+    (dolist (buffer (panel-buffers window))
+      (when (tracks-buffers-p buffer)
+        (reload-buffer buffer)))))

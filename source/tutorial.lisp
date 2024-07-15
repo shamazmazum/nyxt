@@ -404,7 +404,7 @@ definition and documentation.")
     (make-buffer-focus)))
 
 (define-panel-command-global quick-start (&key (page 0))
-    (panel "*Quick Start*" :left)
+    (panel "*Quick Start*" :side :left)
   "Display Nyxt quick start tutorial."
   ;; FIXME Maybe add a width parameter to `define-panel-*'?
   (setf (ffi-width panel) 350)

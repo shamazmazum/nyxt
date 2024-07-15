@@ -521,7 +521,9 @@ Dispatches on buffers and modes."
     (update-document-model :buffer buffer)
     (dolist (mode (modes buffer))
       (on-signal-load-finished mode url))
-    (run-thread "buffer-loaded-hook" (hooks:run-hook (buffer-loaded-hook buffer) buffer)))
+    (run-thread "buffer-loaded-hook"
+      (hooks:run-hook (buffer-loaded-hook buffer) buffer)
+      (reload-tracking-panels (current-window))))
   (:method ((mode mode) url)
     url))
 

@@ -810,6 +810,10 @@ store them somewhere and `ffi-buffer-delete' them once done."))
 
 (define-class panel-buffer (input-buffer modable-buffer document-buffer network-buffer)
   ((width 256 :documentation "The width in pixels.")
+   (tracks-buffers-p
+    nil
+    :type boolean
+    :documentation "This buffer is reloaded when a buffer is created or deleted")
    (style (theme:themed-css (theme *browser*)
             `(:font-face :font-family "public sans" :font-style "normal" :font-weight "400" :src ,(format nil "url('nyxt-resource:~a')" "PublicSans-Regular.woff") "format('woff')")
             `(:font-face :font-family "public sans" :font-style "italic" :font-weight "400" :src ,(format nil "url('nyxt-resource:~a')" "PublicSans-Italic.woff") "format('woff')")
@@ -1372,6 +1376,7 @@ The notion of first element is dictated by `containers:first-item'."
 (defgeneric buffer-delete (buffer)
   (:method ((buffer buffer))
     (hooks:run-hook (buffer-delete-hook buffer) buffer)
+    (reload-tracking-panels (current-window))
     (ffi-buffer-delete buffer))
   (:documentation "Delete buffer after running `buffer-delete-hook'."))
 
@@ -1445,6 +1450,7 @@ This is a low-level function.  See `buffer-delete' and `delete-buffer'."
 Run WINDOW's `window-set-buffer-hook' over WINDOW and BUFFER before
 proceeding."
   (hooks:run-hook (window-set-buffer-hook window) window buffer)
+  (reload-tracking-panels (current-window))
   ;; When not focusing, that is, when previewing we don't update the
   ;; `last-access' so as to not disturb the ordering.
   (when (and focus

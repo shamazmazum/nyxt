@@ -91,7 +91,7 @@ shown linearly instead."
                    (buffer-tree->html buffer)))))))))
 
 (define-panel-command-global buffers-panel ()
-    (panel-buffer "*Buffers panel*")
+    (panel-buffer "*Buffers panel*" :causes-buffer-tracking-p t)
   "Display a list of buffers with easy switching."
   (flet ((buffer-markup (buffer highlight-p)
            "Create the presentation for a buffer."
@@ -125,25 +125,3 @@ shown linearly instead."
                        (nyxt::panel-buffers (current-window))
                        :test #'string=
                        :key (compose #'render-url #'url))))
-
-(defun buffers-panel-handler-set-buffer (window buffer)
-  (declare (ignore buffer))
-  (alex:when-let ((panel-buffer (first (nyxt::panel-buffers window))))
-    (reload-panel-buffer panel-buffer)))
-
-#+nil
-(define-configuration window
-  ((window-set-buffer-hook
-    (hooks:add-hook %slot-default% 'buffers-panel-handler-set-buffer))))
-
-(defun buffers-panel-reload-handler (buffer)
-  (declare (ignore buffer))
-  (alex:when-let ((panel-buffer (first (nyxt::panel-buffers (current-window)))))
-    (reload-panel-buffer panel-buffer)))
-
-#+nil
-(define-configuration network-buffer
-  ((buffer-loaded-hook
-    (hooks:add-hook %slot-default% 'buffers-panel-reload-handler))
-   (buffer-delete-hook
-    (hooks:add-hook %slot-default% 'buffers-panel-reload-handler))))

@@ -105,3 +105,11 @@ When QUERY-IN-NEW-BUFFER-P is non-nil, open the results in a new buffer."
    (control-completion-url nil))
   (:export-class-name-p t)
   (:documentation "A representation of the Atlas SearXNG search engine."))
+
+(define-class google-search-engine (search-engine)
+  ((name "Google")
+   (shortcut "ggl")
+   (control-url "https://google.com/search?q=~a")
+   (control-completion-url nil))
+  (:export-class-name-p t)
+  (:documentation "A representation of the Google search engine."))

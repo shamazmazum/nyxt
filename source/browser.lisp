@@ -57,7 +57,8 @@ Should be redefined by the renderer."))
 
 (define-class browser (renderer-browser)
   ((search-engines
-    (mapcar #'make-instance '(ddg-search-engine
+    (mapcar #'make-instance '(google-search-engine
+                              ddg-search-engine
                               wikipedia-search-engine
                               atlas-searx-search-engine))
     :type (cons search-engine *)

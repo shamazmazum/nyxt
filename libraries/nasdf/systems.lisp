@@ -8,6 +8,7 @@
   (:documentation "Extended ASDF system.
 It enables features such as:
 - Togglable logical-pathnames depending on NASDF_USE_LOGICAL_PATHS.
+- Togglable executable compression with NASDF_COMPRESS.
 - Executable dependencies are made immutable for ASDF to prevent accidental reloads."))
 (import 'nasdf-system :asdf-user)
 
@@ -23,6 +24,15 @@ the few modules that's not automatically included in the image."
   #+sbcl
   (require :sb-sprof)
   (map () 'register-immutable-system (already-loaded-systems)))
+
+#+sb-core-compression
+(defmethod perform ((o image-op) (c nasdf-system))
+  (dump-image (output-file o c)
+              :executable t
+              :compression (when (getenv "NASDF_COMPRESS")
+                             (or (parse-integer (getenv "NASDF_COMPRESS")
+                                                :junk-allowed t)
+                                 (string-equal "T" (getenv "NASDF_COMPRESS"))))))
 
 (defun set-new-translation (host logical-directory
                             root-directory

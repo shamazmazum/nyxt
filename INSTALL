@@ -19,8 +19,16 @@ dependencies, then it all should work out of the box.
 
 NYXT_RENDERER sets the renderer, by default "gi-gtk".
 
+
 NYXT_VERSION forces the version number, in the rare eventuality that it can't be
 fetched in another way.
+
+Set NASDF_COMPRESS to a compression level (1-19 for Zstd, -1-9 for Zip, or T for
+the default level) to generate a compressed executable.  This greatly reduces
+the file size at the expense of a slightly increased startup time.  It's
+recommended to leave this off on file systems with compression.
+
+Set NASDF_TESTS_NO_NETWORK to disable tests that require networking.
 
 The static documentation is particularly useful when it can't be consulted from
 Nyxt itself (where it is dynamically generated at runtime).

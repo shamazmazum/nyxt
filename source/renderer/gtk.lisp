@@ -289,6 +289,7 @@ the renderer thread, use `defmethod' instead."
                                                           :callback (first callbacks)
                                                           :error-callback (second callbacks))))
              nyxt::*schemes*)
+    #+nil
     (webkit:webkit-cookie-manager-set-persistent-storage
      cookie-manager
      (uiop:native-namestring (files:expand (make-instance 'nyxt-data-directory

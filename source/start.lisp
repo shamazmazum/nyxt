@@ -35,7 +35,7 @@ set from the corresponding command line option.")
 (defun handle-malformed-cli-arg (condition)
   (format t "Error parsing argument ~a: ~a.~&" (opts:option condition) condition)
   (opts:describe)
-  (uiop:quit 0 #+bsd nil))
+  (uiop:quit 0))
 
 (sera:eval-always
   (defun define-opts ()
@@ -155,7 +155,7 @@ This is useful to run scripts for instance."))))
           ;; separate thread because the renderer loop is waiting for this
           ;; function to finish.
           (sleep 1)
-          (uiop:quit code #+bsd nil))))))
+          (uiop:quit code))))))
 
 (define-command quit-after-clearing-session (&key confirmation-p) ; TODO: Rename?
   "Close all buffers then quit Nyxt."
@@ -329,7 +329,7 @@ Otherwise bind socket and return the listening thread."
         (write-string expr s))
       (progn
         (log:info "No instance running.")
-        (uiop:quit 0 #+bsd nil))))
+        (uiop:quit 0))))
 
 (sera:eval-always
   (defvar %start-args (mapcar (compose #'intern
@@ -408,7 +408,7 @@ The OPTIONS are the same as the command line options.
       (t
        (with-protect ("Error: ~a" :condition)
          (start-browser urls))))
-    (unless *run-from-repl-p* (uiop:quit 0 #+bsd nil))))
+    (unless *run-from-repl-p* (uiop:quit 0))))
 
 (defun load-or-eval (&key remote)
   (when remote
@@ -435,7 +435,7 @@ The OPTIONS are the same as the command line options.
       (end-of-file ()
         (log:info "Quitting interpreter."))))
   (when remote
-    (uiop:quit 0 #+bsd nil)))
+    (uiop:quit 0)))
 
 (defun start-load-or-eval ()
   "Evaluate Lisp.

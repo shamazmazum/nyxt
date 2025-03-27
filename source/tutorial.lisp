@@ -165,7 +165,6 @@ Bookmarks can have the following settings:")
         (:p "Bookmark-related commands")
         (:ul
          (list-command-information '(nyxt/mode/bookmark:add-bookmark
-                                     nyxt/mode/bookmark:bookmark-hint
                                      nyxt/mode/bookmark:set-url-from-bookmark
                                      nyxt/mode/bookmark:edit-bookmark
                                      nyxt/mode/bookmark:delete-bookmark

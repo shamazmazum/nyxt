@@ -37,8 +37,7 @@ internal programming APIs."
     (define-keyscheme-map "bookmarks-mode" ()
       keyscheme:default
       (list
-       "C-b" 'list-bookmarks
-       "C-m g" 'bookmark-hint)
+       "C-b" 'list-bookmarks)
       keyscheme:cua
       (list
        "C-m o" 'set-url-from-bookmark
@@ -54,7 +53,6 @@ internal programming APIs."
       keyscheme:vi-normal
       (list
        "m l" 'list-bookmarks
-       "m f" 'bookmark-hint
        "m o" 'set-url-from-bookmark
        "m M" 'add-bookmark
        "m m" 'add-bookmark
@@ -209,72 +207,31 @@ against date, given `prompter:active-attributes-keys' configuration."))
           (list ""))))
    (prompter:enable-marks-p t)))
 
-(export-always 'bookmark)
-(defmethod bookmark ((url simple-array))
-  (bookmark (quri:uri url)))
-
-(defmethod bookmark ((url quri:uri))
-  (let ((title (prompt1
-                :prompt (format nil  "Title for ~a" (render-url url))
-                :input (fetch-url-title (render-url url))
-                :sources (make-instance 'prompter:raw-source
-                                        :name "Title")))
-        (tags (prompt
-               :prompt (format nil "Tag(s) for ~a" (render-url url))
-               :sources (list
-                         (make-instance 'new-tag-source)
-                         (make-instance 'tag-source
-                                        :marks (url-bookmark-tags url))))))
-    (persist-bookmark url :tags tags :title title)))
-
-(defmethod bookmark ((buffer buffer))
-  (let* ((url (url buffer))
-         (title (prompt1
-                 :prompt (format nil  "Title for ~a" (render-url url))
-                 :input (title buffer)
-                 :sources (make-instance 'prompter:raw-source
-                                         :name "Title")))
-         (tags (prompt
-                :prompt (format nil "Tag(s) for ~a " (render-url url))
-                :sources (list
-                          (make-instance 'new-tag-source)
-                          (make-instance 'keyword-source
-                                         :buffer buffer)
-                          (make-instance 'tag-source
-                                         :marks (url-bookmark-tags
-                                                 (url buffer)))))))
-    (persist-bookmark url :title title :tags tags)))
-
-(defmethod bookmark ((history-entry history-entry))
-  (let* ((url (url history-entry))
-         (title (prompt1
-                 :prompt (format nil  "Title for ~a" (render-url url))
-                 :input (title history-entry)
-                 :sources (make-instance 'prompter:raw-source
-                                         :name "Title")))
-         (tags (prompt
-                :prompt (format nil  "Tag(s) for ~a" (render-url url))
-                :sources (list
-                          (make-instance 'new-tag-source)
-                          (make-instance 'tag-source
-                                         :marks (url-bookmark-tags url))))))
-    (persist-bookmark url :tags tags :title title)))
-
-(define-command add-bookmark ()
-  "Prompt for objects to bookmark."
-  (prompt
-   :prompt "Add Bookmark(s)"
-   :input (render-url (url (current-buffer)))
-   :sources (list
-             (make-instance 'prompter:raw-source
-                            :actions-on-return
-                            (lambda-mapped-command bookmark))
-             (make-instance 'buffer-source
-                            :actions-on-return
-                            (lambda-mapped-command bookmark))
-             (make-instance 'global-history-source
-                            :actions-on-return
-                            (lambda-mapped-command bookmark)))))
+(define-command add-bookmark (&optional (buffer (current-buffer)))
+  "Bookmark the URL of the current BUFFER."
+  (if (url-empty-p (url buffer))
+      (echo "Buffer has no URL.")
+      (let ((tags (prompt
+                   :prompt (format nil "Tag(s) for ~a " (render-url (url buffer)))
+                   :sources (list
+                             (make-instance 'prompter:word-source
+                                            :name "New tags"
+                                            ;; On no input, suggest the empty tag which effectively acts as "no tag".
+                                            ;; Without it, we would be forced to specify a tag.
+                                            :filter-postprocessor
+                                            (lambda (suggestions source input)
+                                              (declare (ignore source input))
+                                              (or suggestions
+                                                  (list "")))
+                                            :enable-marks-p t)
+                             (make-instance 'keyword-source
+                                            :buffer buffer)
+                             (make-instance 'tag-source
+                                            :marks (url-bookmark-tags (url buffer)))))))
+        (persist-bookmark (url buffer)
+                          :title (title buffer)
+                          :tags tags)
+        (echo "Bookmarked ~a." (render-url (url buffer))))))
 
 (define-command delete-bookmark (&optional urls-or-bookmark-entries)
   "Delete bookmark(s) matching the chosen URLS-OR-BOOKMARK-ENTRIES.
@@ -469,12 +426,3 @@ Splits bookmarks into groups by tags."
                                   :tags (when tags
                                           (str:split "," tags))))))))
       (echo "The file doesn't exist or is not an HTML file.")))
-
-(define-command bookmark-hint ()
-  "Prompt for element hints and bookmark them."
-  (nyxt/mode/hint:query-hints
-   "Bookmark hint"
-   (lambda (result)
-     (dolist (url (mapcar #'url result))
-       (bookmark (quri:uri url))))
-   :selector "a"))

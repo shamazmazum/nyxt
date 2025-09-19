@@ -226,6 +226,7 @@
                  (:file "prompt-buffer")
                  (:file "proxy")
                  (:file "reading-line")
+                 (:file "reduce-tracking")
                  ;; TODO Fix repeat-mode architecture.  Visit the file below for
                  ;; more information.
                  ;; (:file "repeat")
@@ -276,7 +277,8 @@
                (:file "mode/no-image")
                (:file "mode/no-script")
                (:file "mode/no-webgl")
-               (:file "mode/proxy")))
+               (:file "mode/proxy")
+               (:file "mode/reduce-tracking")))
 
 (defsystem "nyxt/gi-gtk"
   :defsystem-depends-on ("nasdf")

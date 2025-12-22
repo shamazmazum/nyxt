@@ -239,6 +239,8 @@ the renderer thread, use `defmethod' instead."
                                  (make-instance 'webkit-website-data-manager)))
          (cookie-manager (webkit:webkit-web-context-get-cookie-manager context))
          (gtk-extensions-path (files:expand (make-instance 'gtk-extensions-directory))))
+    (webkit:webkit-web-context-set-process-model
+     context :webkit-process-model-multiple-secondary-processes)
     (webkit:webkit-web-context-set-spell-checking-enabled context t)
     ;; Need to set the initial language list.
     (let ((pointer (cffi:foreign-alloc :string
@@ -748,8 +750,8 @@ with this scheme.")
    (or (error-callback scheme)
        (lambda (c) (echo-warning "Error while routing ~s resource: ~a" scheme c)))))
 
-(defmethod customize-instance :after ((buffer gtk-buffer) &key &allow-other-keys)
-  (ffi-buffer-initialize-foreign-object buffer))
+(defmethod customize-instance :after ((buffer gtk-buffer) &key parent &allow-other-keys)
+  (ffi-buffer-initialize-foreign-object buffer parent))
 
 (define-ffi-method ffi-buffer-url ((buffer gtk-buffer))
   (quri:uri (webkit:webkit-web-view-uri (gtk-object buffer))))
@@ -1168,14 +1170,20 @@ with this scheme.")
       (echo "[~a] ~a: ~a" (webkit:webkit-web-view-uri web-view) title body)
       t)))
 
-(define-ffi-method ffi-buffer-initialize-foreign-object ((buffer gtk-buffer))
+(define-ffi-method ffi-buffer-initialize-foreign-object ((buffer gtk-buffer) parent)
   "Initialize BUFFER's GTK web view."
   (setf (gtk-object buffer)
-        (if (prompt-buffer-p buffer)
-            ;; A single web view is shared by all prompt buffers of a window.
-            (prompt-buffer-view (window buffer))
-            (make-instance 'webkit:webkit-web-view
-                           :web-context (get-web-context *browser* "default"))))
+        (cond
+          ((prompt-buffer-p buffer)
+           ;; A single web view is shared by all prompt buffers of a window.
+           (prompt-buffer-view (window buffer)))
+          (parent
+           (webkit:webkit-web-view-new-with-related-view
+            (gtk-object parent)))
+          (t
+           (make-instance 'webkit:webkit-web-view
+                          :web-context (get-web-context *browser* "default")))))
+
   (when (document-buffer-p buffer)
     (setf (ffi-buffer-smooth-scrolling-enabled-p buffer) (smooth-scrolling buffer)))
   ;; TODO: Maybe define an FFI method?
@@ -1305,7 +1313,7 @@ with this scheme.")
     (let ((url (webkit:webkit-uri-request-uri
                 (webkit:webkit-navigation-action-get-request
                  (gobject:pointer navigation-action)))))
-      (gtk-object (make-buffer-focus :url (quri:uri url)))))
+      (gtk-object (make-buffer-focus :url (quri:uri url) :parent buffer))))
   (connect-signal buffer "context-menu" nil (web-view context-menu event hit-test-result)
     (declare (ignore web-view event hit-test-result))
     (loop with length = (webkit:webkit-context-menu-get-n-items context-menu)

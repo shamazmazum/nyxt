@@ -120,7 +120,7 @@ Usually setf-able."))
 Dispatches over `window' and classes inheriting from `buffer'.
 Usually setf-able."))
 
-(define-ffi-generic ffi-buffer-initialize-foreign-object (buffer)
+(define-ffi-generic ffi-buffer-initialize-foreign-object (buffer parent)
   (:documentation "Create and configure the foreign object for a given buffer.
 Create the foreign objects necessary for rendering the buffer."))
 

@@ -13,7 +13,7 @@
 
 (defmethod reopen-dead-buffer ((buffer modable-buffer))
   (when (dead-buffer-p buffer)
-    (ffi-buffer-initialize-foreign-object buffer)
+    (ffi-buffer-initialize-foreign-object buffer nil)
     (add-to-recent-buffers buffer)
     (buffer-set (id buffer) buffer)
     (ffi-buffer-load buffer (url buffer))))

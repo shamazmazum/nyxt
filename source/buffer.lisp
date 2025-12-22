@@ -809,7 +809,7 @@ when `proxied-downloads-p' is true."
                              (url (if *browser*
                                       (default-new-buffer-url *browser*)
                                       (quri:uri (nyxt-url 'new))))
-                             (load-url-p t) (buffer-class 'web-buffer)
+                             (load-url-p t) (buffer-class 'web-buffer) parent
                              &allow-other-keys)
   "Create a new buffer.
 MODES is a list of mode symbols.
@@ -821,6 +821,7 @@ LOAD-URL-P controls whether to load URL right at buffer creation."
                         buffer-class
                         :title title
                         :extra-modes modes
+                        :parent parent
                         (append (unless (url-empty-p url) (list :url url))
                                 (uiop:remove-plist-keys '(:title :modes :url)
                                                         args)))))
@@ -828,10 +829,10 @@ LOAD-URL-P controls whether to load URL right at buffer creation."
       (ffi-buffer-load buffer url))
     buffer))
 
-(define-command make-buffer-focus (&key (url (default-new-buffer-url *browser*)))
+(define-command make-buffer-focus (&key (url (default-new-buffer-url *browser*)) parent)
   "Switch to a new buffer.
 See `make-buffer'."
-  (let ((buffer (make-buffer :url url)))
+  (let ((buffer (make-buffer :url url :parent parent)))
     (set-current-buffer buffer)
     buffer))
 
